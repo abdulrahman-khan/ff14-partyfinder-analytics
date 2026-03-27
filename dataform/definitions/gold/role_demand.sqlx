@@ -1,0 +1,36 @@
+config {
+  type: "incremental",
+  schema: "gold",
+  name: "role_demand",
+  uniqueKey: ["duty", "world", "date", "hour"],
+  description: "Role demand per duty — which roles are hardest to fill",
+  bigquery: {
+    partitionBy: "date"
+  }
+}
+
+SELECT
+  duty,
+  category,
+  world,
+  datacenter,
+  region,
+  DATE(scraped_at)              AS date,
+  EXTRACT(HOUR FROM scraped_at) AS hour,
+  COUNT(DISTINCT listing_id)    AS total_listings,
+  SUM(open_tank_slots)          AS total_open_tank,
+  SUM(open_healer_slots)        AS total_open_healer,
+  SUM(open_dps_slots)           AS total_open_dps,
+  CASE
+    WHEN SUM(open_tank_slots) >= SUM(open_healer_slots)
+     AND SUM(open_tank_slots) >= SUM(open_dps_slots)   THEN 'tank'
+    WHEN SUM(open_healer_slots) >= SUM(open_dps_slots) THEN 'healer'
+    ELSE 'dps'
+  END AS most_wanted_role
+
+FROM ${ref("listings_clean")}
+
+WHERE duty IS NOT NULL
+  ${ when(incremental(), `AND DATE(scraped_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`) }
+
+GROUP BY 1, 2, 3, 4, 5, 6, 7

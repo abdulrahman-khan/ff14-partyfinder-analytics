@@ -1,0 +1,4 @@
+defaultProject: ff14-pf-data
+defaultDataset: silver
+defaultLocation: us-central1
+dataformCoreVersion: 3.0.0

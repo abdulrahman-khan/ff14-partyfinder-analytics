@@ -52,3 +52,54 @@ resource "google_cloud_run_v2_job" "scraper" {
 output "cloud_run_job_name" {
   value = google_cloud_run_v2_job.scraper.name
 }
+
+# cloud run for gcs_to_bronze.py
+resource "google_cloud_run_v2_job" "loader" {
+  name     = "ff14-pf-loader"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.pipeline.email
+
+      containers {
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.scraper.repository_id}/loader:latest"
+
+        env {
+          name  = "GCS_BUCKET"
+          value = google_storage_bucket.raw.name
+        }
+        env {
+          name  = "BQ_PROJECT"
+          value = var.project_id
+        }
+        env {
+          name  = "BQ_DATASET"
+          value = "bronze"
+        }
+        env {
+          name  = "BQ_TABLE"
+          value = "raw_listings"
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+
+      max_retries = 2
+      timeout     = "600s"
+    }
+  }
+
+  labels = { project = "ff14-pf", env = "prod" }
+
+  depends_on = [
+    google_artifact_registry_repository.scraper,
+    google_storage_bucket.raw,
+    google_service_account.pipeline,
+  ]
+}

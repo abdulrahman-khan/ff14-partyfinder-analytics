@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "bronze",
+  name: "raw_listings",
+  description: "Raw listings loaded from GCS by the Python loader"
+}

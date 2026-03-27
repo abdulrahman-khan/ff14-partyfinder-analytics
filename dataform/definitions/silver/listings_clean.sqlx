@@ -1,0 +1,79 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  name: "listings_clean",
+  uniqueKey: ["listing_id", "scraped_at"],
+  description: "Cleaned normalized listings joined with world reference data",
+  bigquery: {
+    partitionBy: "DATE(scraped_at)",
+    clusterBy: ["world", "category", "duty"]
+  }
+}
+
+WITH base AS (
+  SELECT
+    b.listing_id,
+    b.duty,
+    LOWER(TRIM(b.category))  AS category,
+    b.description,
+    b.creator,
+    b.creator_server,
+    b.world,
+    w.datacenter,
+    w.region,
+    b.min_ilvl,
+    b.slots_filled,
+    b.slots_total,
+    b.slots_total - b.slots_filled AS slots_open,
+    b.slot_details,
+    b.scraped_at,
+
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'tank' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(b.slot_details)) AS slot
+    ) AS open_tank_slots,
+
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'healer' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(b.slot_details)) AS slot
+    ) AS open_healer_slots,
+
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'dps' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(b.slot_details)) AS slot
+    ) AS open_dps_slots,
+
+    MIN(b.scraped_at) OVER (PARTITION BY b.listing_id) AS first_seen,
+    MAX(b.scraped_at) OVER (PARTITION BY b.listing_id) AS last_seen
+
+  FROM ${ref("raw_listings")} b
+  LEFT JOIN ${ref("worlds")} w
+    ON LOWER(TRIM(b.world)) = LOWER(TRIM(w.world))
+
+  WHERE b.listing_id IS NOT NULL
+    AND b.duty IS NOT NULL
+    ${ when(incremental(), `AND b.scraped_at > (SELECT MAX(scraped_at) FROM ${self()})`) }
+),
+
+deduped AS (
+  SELECT *,
+    TIMESTAMP_DIFF(last_seen, first_seen, MINUTE) AS listing_age_mins,
+    ROW_NUMBER() OVER (
+      PARTITION BY listing_id, DATE(scraped_at)
+      ORDER BY scraped_at DESC
+    ) AS rn
+  FROM base
+)
+
+SELECT * EXCEPT(rn, slot_details)
+FROM deduped
+WHERE rn = 1
