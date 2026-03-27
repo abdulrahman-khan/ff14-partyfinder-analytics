@@ -1,0 +1,39 @@
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+*.pyc
+*.egg-info/
+dist/
+build/
+.env
+.venv/
+venv/
+
+
+# Terraform
+.terraform/
+*.tfstate
+*.tfstate.*
+crash.log
+
+# Sensitive Terraform vars
+*.tfvars
+*.tfvars.json
+
+# Lock file (optional: keep if working in team)
+# .terraform.lock.hcl
+
+
+# docker?
+*.log
+
+# etc
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.bak
+*.tmp
