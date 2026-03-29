@@ -1,0 +1,14 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "worlds_clean",
+  uniqueKey: ["world", "datacenter"],
+  description: "Cleaned normalized listings joined with world reference data",
+}
+
+SELECT
+    TRIM(world, "'") as world
+    , TRIM(datacenter, "'") as datacenter
+    , TRIM(region, "'") as region
+FROM ${ref("worlds")} 
+

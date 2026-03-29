@@ -56,12 +56,17 @@ WITH base AS (
     MAX(b.scraped_at) OVER (PARTITION BY b.listing_id) AS last_seen
 
   FROM ${ref("raw_listings")} b
-  LEFT JOIN ${ref("worlds")} w
+  LEFT JOIN ${ref("worlds_clean")} w
     ON LOWER(TRIM(b.world)) = LOWER(TRIM(w.world))
 
   WHERE b.listing_id IS NOT NULL
     AND b.duty IS NOT NULL
-    ${ when(incremental(), `AND b.scraped_at > (SELECT MAX(scraped_at) FROM ${self()})`) }
+    ${ when(incremental(),
+        `AND b.scraped_at > (
+          SELECT COALESCE(MAX(scraped_at), TIMESTAMP('2000-01-01'))
+          FROM ${self()}
+        )`
+    ) }
 ),
 
 deduped AS (

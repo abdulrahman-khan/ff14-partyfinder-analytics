@@ -40,22 +40,23 @@ RAW_PREFIX  = "raw/"
 # =============================================================================
 
 def list_unprocessed_files(bucket, bq_client) -> list:
-    """
-    Return GCS blobs under raw/ that have no 'completed' row in file_loads.
-    Uses a LEFT JOIN so files that have never been seen are also returned.
-    """
     table_ref = f"`{BQ_PROJECT}.{BQ_DATASET}.file_loads`"
 
     query = f"""
-        SELECT b.file_name
-        FROM UNNEST(@files) AS b(file_name)
-        LEFT JOIN {table_ref} fl
-               ON fl.file_name = b.file_name
-              AND fl.status    = 'completed'
+        SELECT file_name
+        FROM UNNEST(@files) AS file_name
+        LEFT JOIN (
+            SELECT file_name, status
+            FROM {table_ref}
+            QUALIFY ROW_NUMBER() OVER (
+                PARTITION BY file_name
+                ORDER BY COALESCE(completed_at, failed_at, started_at) DESC
+            ) = 1
+        ) fl USING (file_name)
         WHERE fl.file_name IS NULL
+           OR fl.status NOT IN ('completed')
     """
 
-    # Collect blob names first (cheap — metadata only)
     blobs      = list(bucket.list_blobs(prefix=RAW_PREFIX))
     blob_names = [b.name for b in blobs if b.name.endswith(".json")]
 
@@ -70,48 +71,55 @@ def list_unprocessed_files(bucket, bq_client) -> list:
             ]
         ),
     )
-    completed_new = {row.file_name for row in job.result()}
-
-    # Return the actual blob objects for the unprocessed names
-    unprocessed = [b for b in blobs if b.name in completed_new]
+    unprocessed_names = {row.file_name for row in job.result()}
+    unprocessed = [b for b in blobs if b.name in unprocessed_names]
     log.info("Found %d new files to process", len(unprocessed))
     return unprocessed
-
 
 # =============================================================================
 # FILE LOAD TRACKING  (single table: file_loads)
 # =============================================================================
 
 def claim_file(bq_client, blob) -> bool:
-    """
-    Insert a 'processing' row. Returns False if already claimed
-    (duplicate insert will surface as an error we catch).
-    """
     table = f"{BQ_PROJECT}.{BQ_DATASET}.file_loads"
-    row   = {
-        "file_name":  blob.name,
-        "status":     "processing",
-        "started_at": datetime.now(timezone.utc).isoformat(),
+    row = {
+        "file_name":    blob.name,
+        "status":       "processing",
+        "started_at":   datetime.now(timezone.utc).isoformat(),
+        "completed_at": None,
+        "failed_at":    None,
+        "error":        None,
     }
     errors = bq_client.insert_rows_json(table, [row])
     if errors:
-        log.warning("Could not claim %s (likely already claimed): %s", blob.name, errors)
+        log.warning("Could not claim %s: %s", blob.name, errors)
         return False
     return True
 
-
 def complete_file(bq_client, blob):
-    """Mark the file_loads row as completed."""
-    _update_file_status(bq_client, blob.name, "completed")
-
+    _insert_file_status(bq_client, blob.name, "completed")
 
 def fail_file(bq_client, blob, error: Exception, context: str = ""):
-    """Mark the file_loads row as failed, recording the error."""
-    _update_file_status(
+    _insert_file_status(
         bq_client, blob.name, "failed",
         error=f"[{context}] {error}" if context else str(error),
     )
 
+def _insert_file_status(bq_client, file_name: str, status: str, error: str = None):
+    table = f"{BQ_PROJECT}.{BQ_DATASET}.file_loads"
+    row = {
+        "file_name":    file_name,
+        "status":       status,
+        "started_at":   None,
+        "completed_at": datetime.now(timezone.utc).isoformat() if status == "completed" else None,
+        "failed_at":    datetime.now(timezone.utc).isoformat() if status == "failed" else None,
+        "error":        error,
+    }
+    errors = bq_client.insert_rows_json(table, [row])
+    if errors:
+        log.error("Failed to write status %s for %s: %s", status, file_name, errors)
+    else:
+        log.info("file_loads: %s → %s", file_name, status)
 
 def _update_file_status(bq_client, file_name: str, status: str, error: str = None):
     if status == "completed":

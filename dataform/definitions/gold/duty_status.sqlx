@@ -31,6 +31,11 @@ SELECT
 FROM ${ref("listings_clean")}
 
 WHERE duty IS NOT NULL
-  ${ when(incremental(), `AND DATE(scraped_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`) }
+  ${ when(incremental(),
+    `AND DATE(scraped_at) >= (
+      SELECT COALESCE(MAX(date), DATE('2000-01-01'))
+      FROM ${self()}
+    )`
+) }
 
 GROUP BY 1, 2, 3, 4, 5, 6, 7

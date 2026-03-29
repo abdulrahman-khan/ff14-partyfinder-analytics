@@ -53,3 +53,16 @@ output "scraper_sa_email" {
 output "pipeline_sa_email" {
   value = google_service_account.pipeline.email
 }
+
+# pipelines
+resource "google_project_iam_member" "pipeline_workflows_invoker" {
+  project = var.project_id
+  role    = "roles/workflows.invoker"
+  member  = "serviceAccount:${google_service_account.pipeline.email}"
+}
+
+resource "google_project_iam_member" "pipeline_dataform_editor" {
+  project = var.project_id
+  role    = "roles/dataform.editor"
+  member  = "serviceAccount:${google_service_account.pipeline.email}"
+}

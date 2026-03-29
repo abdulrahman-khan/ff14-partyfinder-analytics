@@ -1,4 +1,5 @@
 
+
 # Python
 __pycache__/
 *.py[cod]
@@ -18,6 +19,16 @@ venv/
 *.tfstate
 *.tfstate.*
 crash.log
+terraform/.terraform/
+terraform/.terraform.lock.hcl
+terraform/terraform.tfstate
+terraform/terraform.tfstate.backup
+terraform/*.tfvars
+
+
+# Dataform credentials
+dataform/.df-credentials.json
+
 
 # Sensitive Terraform vars
 *.tfvars
@@ -27,8 +38,10 @@ crash.log
 # .terraform.lock.hcl
 
 
-# docker?
+# docker
 *.log
+scraper/__pycache__/
+pipeline/__pycache__/
 
 # etc
 .DS_Store
@@ -37,3 +50,9 @@ Thumbs.db
 .idea/
 *.bak
 *.tmp
+
+
+# Backfill Database
+data/xivpf.db
+
+

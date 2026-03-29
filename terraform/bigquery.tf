@@ -1,4 +1,4 @@
-# ── Datasets: Bronze / Silver / Gold ─────────────────────────────────────────
+#  Datasets: Bronze / Silver / Gold 
 resource "google_bigquery_dataset" "bronze" {
   dataset_id  = "bronze"
   location    = var.region
@@ -20,7 +20,7 @@ resource "google_bigquery_dataset" "gold" {
   labels      = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: raw_listings ──────────────────────────────────────────────────────
+#  Bronze: raw_listings 
 resource "google_bigquery_table" "bronze_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -53,7 +53,7 @@ resource "google_bigquery_table" "bronze_listings" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: file_loads (loader state tracking) ────────────────────────────────
+#  Bronze: file_loads (loader state tracking) 
 resource "google_bigquery_table" "file_loads" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -72,7 +72,7 @@ resource "google_bigquery_table" "file_loads" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: failed_files ──────────────────────────────────────────────────────
+#  Bronze: failed_files 
 resource "google_bigquery_table" "failed_files" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -89,7 +89,7 @@ resource "google_bigquery_table" "failed_files" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Silver: listings_clean ────────────────────────────────────────────────────
+#  Silver: listings_clean 
 resource "google_bigquery_table" "silver_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.silver.dataset_id
@@ -129,7 +129,7 @@ resource "google_bigquery_table" "silver_listings" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Gold: duty_stats ──────────────────────────────────────────────────────────
+#  Gold: duty_stats 
 resource "google_bigquery_table" "gold_duty_stats" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.gold.dataset_id
@@ -164,7 +164,7 @@ resource "google_bigquery_table" "gold_duty_stats" {
 
 
 
-# ── Dataset IAM ───────────────────────────────────────────────────────────────
+#  Dataset IAM 
 resource "google_bigquery_dataset_iam_member" "pipeline_bronze" {
   dataset_id = google_bigquery_dataset.bronze.dataset_id
   role       = "roles/bigquery.dataEditor"
