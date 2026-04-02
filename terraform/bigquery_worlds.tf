@@ -23,7 +23,7 @@ resource "google_bigquery_table" "bronze_worlds" {
     csv_options {
       quote             = "\""
       field_delimiter   = ","
-      skip_leading_rows = 1
+      skip_leading_rows = 0
     }
 
     schema = jsonencode([
