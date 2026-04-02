@@ -1,3 +1,7 @@
+# upload csv to GCS 
+# gsutil cp data/worlds.csv gs://ff14-pf-data-raw/worlds_data/worlds.csv
+
+# external table in BigQuery points directly to GCS, so no need to run jobs
 
 # -- Worlds Data (csv file location
 resource "google_storage_bucket_object" "worlds_csv" {

@@ -1,4 +1,5 @@
-'Adamantoise', 'Aether', 'NA'
+world,datacenter,region
+'Adamantoise','Aether','NA'
 'Cactuar','Aether','NA'
 'Faerie','Aether','NA'
 'Gilgamesh','Aether','NA'
@@ -86,4 +87,4 @@
 'Ravana','Materia','OCE'
 'Sephirot','Materia','OCE'
 'Sophia','Materia','OCE'
-'Zurvan','Materia','OCE')
+'Zurvan','Materia','OCE'
