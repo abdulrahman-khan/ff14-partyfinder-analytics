@@ -2,7 +2,7 @@ config {
   type: "incremental",
   schema: "gold",
   name: "duty_stats",
-  uniqueKey: ["duty", "world", "date", "hour"],
+  uniqueKey: ["duty", "pf_world", "date", "hour"],
   description: "Hourly duty-level aggregates per world with region and datacenter",
   bigquery: {
     partitionBy: "date"
@@ -11,16 +11,16 @@ config {
 
 SELECT
   duty,
+  category,
   is_cross,
-  world,
-  datacenter,
-  region,
+  pf_world,
+  pf_datacenter,
+  pf_region,
   DATE(scraped_at)                AS date,
   EXTRACT(HOUR FROM scraped_at)   AS hour,
   COUNT(DISTINCT listing_id)      AS listing_count,
   ROUND(AVG(slots_total), 2)      AS avg_party_size,
   ROUND(AVG(min_ilvl), 2)         AS avg_min_ilvl,
-  ROUND(AVG(listing_age_mins), 2) AS avg_listing_age_mins,
   COUNTIF(open_tank_slots > 0)    AS listings_needing_tank,
   COUNTIF(open_healer_slots > 0)  AS listings_needing_healer,
   COUNTIF(open_dps_slots > 0)     AS listings_needing_dps,
@@ -36,6 +36,6 @@ WHERE duty IS NOT NULL
       SELECT COALESCE(MAX(date), DATE('2000-01-01'))
       FROM ${self()}
     )`
-) }
+  ) }
 
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8

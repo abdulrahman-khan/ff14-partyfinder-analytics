@@ -2,7 +2,7 @@ config {
   type: "incremental",
   schema: "gold",
   name: "role_demand",
-  uniqueKey: ["duty", "world", "date", "hour"],
+  uniqueKey: ["duty", "pf_world", "date", "hour"],
   description: "Role demand per duty — which roles are hardest to fill",
   bigquery: {
     partitionBy: "date"
@@ -11,10 +11,11 @@ config {
 
 SELECT
   duty,
+  category,
   is_cross,
-  world,
-  datacenter,
-  region,
+  pf_world,
+  pf_datacenter,
+  pf_region,
   DATE(scraped_at)              AS date,
   EXTRACT(HOUR FROM scraped_at) AS hour,
   COUNT(DISTINCT listing_id)    AS total_listings,
@@ -31,6 +32,11 @@ SELECT
 FROM ${ref("listings_clean")}
 
 WHERE duty IS NOT NULL
-  ${ when(incremental(), `AND DATE(scraped_at) >= DATE_SUB(CURRENT_DATE(), INTERVAL 1 DAY)`) }
+  ${ when(incremental(),
+    `AND DATE(scraped_at) >= (
+      SELECT COALESCE(MAX(date), DATE('2000-01-01'))
+      FROM ${self()}
+    )`
+  ) }
 
-GROUP BY 1, 2, 3, 4, 5, 6, 7
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8

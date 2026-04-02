@@ -1,4 +1,4 @@
-# ── Datasets: Bronze / Silver / Gold ─────────────────────────────────────────
+# -- Datasets: Bronze / Silver / Gold -----------------------------------------
 resource "google_bigquery_dataset" "bronze" {
   dataset_id  = "bronze"
   location    = var.region
@@ -20,7 +20,7 @@ resource "google_bigquery_dataset" "gold" {
   labels      = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: raw_listings ──────────────────────────────────────────────────────
+# -- Bronze: raw_listings ------------------------------------------------------
 resource "google_bigquery_table" "bronze_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -53,7 +53,7 @@ resource "google_bigquery_table" "bronze_listings" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: file_loads ────────────────────────────────────────────────────────
+# -- Bronze: file_loads --------------------------------------------------------
 resource "google_bigquery_table" "file_loads" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -72,7 +72,7 @@ resource "google_bigquery_table" "file_loads" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: failed_files ──────────────────────────────────────────────────────
+# -- Bronze: failed_files ------------------------------------------------------
 resource "google_bigquery_table" "failed_files" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -89,7 +89,7 @@ resource "google_bigquery_table" "failed_files" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Bronze: duties ────────────────────────────────────────────────────────────
+# -- Bronze: duties ------------------------------------------------------------
 resource "google_bigquery_table" "bronze_duties" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -104,7 +104,7 @@ resource "google_bigquery_table" "bronze_duties" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Silver: listings_clean ────────────────────────────────────────────────────
+# -- Silver: listings_clean ----------------------------------------------------
 resource "google_bigquery_table" "silver_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.silver.dataset_id
@@ -160,7 +160,7 @@ resource "google_bigquery_table" "silver_listings" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Gold: duty_stats ──────────────────────────────────────────────────────────
+# -- Gold: duty_stats ---------------------------------------------------------
 resource "google_bigquery_table" "gold_duty_stats" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.gold.dataset_id
@@ -175,24 +175,25 @@ resource "google_bigquery_table" "gold_duty_stats" {
   schema = jsonencode([
     { name = "duty",                    type = "STRING",  mode = "NULLABLE" },
     { name = "category",                type = "STRING",  mode = "NULLABLE" },
-    { name = "world",                   type = "STRING",  mode = "NULLABLE" },
-    { name = "datacenter",              type = "STRING",  mode = "NULLABLE" },
-    { name = "region",                  type = "STRING",  mode = "NULLABLE" },
+    { name = "is_cross",                type = "INTEGER", mode = "NULLABLE" },
+    { name = "pf_world",                type = "STRING",  mode = "NULLABLE" },
+    { name = "pf_datacenter",           type = "STRING",  mode = "NULLABLE" },
+    { name = "pf_region",               type = "STRING",  mode = "NULLABLE" },
     { name = "date",                    type = "DATE",    mode = "NULLABLE" },
     { name = "hour",                    type = "INTEGER", mode = "NULLABLE" },
     { name = "listing_count",           type = "INTEGER", mode = "NULLABLE" },
     { name = "avg_party_size",          type = "FLOAT",   mode = "NULLABLE" },
     { name = "avg_min_ilvl",            type = "FLOAT",   mode = "NULLABLE" },
-    { name = "avg_listing_age_mins",    type = "FLOAT",   mode = "NULLABLE" },
     { name = "listings_needing_tank",   type = "INTEGER", mode = "NULLABLE" },
     { name = "listings_needing_healer", type = "INTEGER", mode = "NULLABLE" },
-    { name = "listings_needing_dps",    type = "INTEGER", mode = "NULLABLE" }
+    { name = "listings_needing_dps",    type = "INTEGER", mode = "NULLABLE" },
+    { name = "avg_fill_rate_pct",       type = "FLOAT",   mode = "NULLABLE" }
   ])
 
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-# ── Dataset IAM ───────────────────────────────────────────────────────────────
+# -- Dataset IAM ---------------------------------------------------------------
 resource "google_bigquery_dataset_iam_member" "pipeline_bronze" {
   dataset_id = google_bigquery_dataset.bronze.dataset_id
   role       = "roles/bigquery.dataEditor"
