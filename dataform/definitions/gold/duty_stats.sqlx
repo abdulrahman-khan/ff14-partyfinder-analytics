@@ -11,7 +11,6 @@ config {
 
 SELECT
   duty,
-  category,
   is_cross,
   pf_world,
   pf_datacenter,
@@ -38,4 +37,4 @@ WHERE duty IS NOT NULL
     )`
   ) }
 
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
+GROUP BY 1, 2, 3, 4, 5, 6, 7

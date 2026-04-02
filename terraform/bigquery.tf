@@ -126,7 +126,6 @@ resource "google_bigquery_table" "silver_listings" {
     { name = "is_unreal",           type = "INTEGER",   mode = "NULLABLE" },
     { name = "is_extreme",          type = "INTEGER",   mode = "NULLABLE" },
     { name = "is_cross",            type = "INTEGER",   mode = "NULLABLE" },
-    { name = "category",            type = "STRING",    mode = "NULLABLE" },
     { name = "description_clean",   type = "STRING",    mode = "NULLABLE" },
     { name = "is_loot",             type = "INTEGER",   mode = "NULLABLE" },
     { name = "is_practice",         type = "INTEGER",   mode = "NULLABLE" },
@@ -174,7 +173,6 @@ resource "google_bigquery_table" "gold_duty_stats" {
 
   schema = jsonencode([
     { name = "duty",                    type = "STRING",  mode = "NULLABLE" },
-    { name = "category",                type = "STRING",  mode = "NULLABLE" },
     { name = "is_cross",                type = "INTEGER", mode = "NULLABLE" },
     { name = "pf_world",                type = "STRING",  mode = "NULLABLE" },
     { name = "pf_datacenter",           type = "STRING",  mode = "NULLABLE" },
