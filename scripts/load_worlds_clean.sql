@@ -4,6 +4,9 @@
 -- Prerequisites: bronze.worlds external table must exist and point at
 -- gs://ff14-pf-data-raw/worlds_data/worlds.csv
 
+-- tell terraform this script exists 
+-- terraform import google_bigquery_table.silver_worlds_clean ff14-pf-data/silver/worlds_clean
+
 -- 
 
 -- upload worlds.csv

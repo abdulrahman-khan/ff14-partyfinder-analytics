@@ -156,6 +156,11 @@ dataform run
 
 For future changes to scraper/loader, rebuild and push image. Then reexecute jobs.  
 ```bash
+
+# rebuild and push duty extractor after changes to extract_duties.py
+docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest ./duty_extractor
+docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest
+
 # Rebuild and push loader after changes to gcs_to_bronze.py
 docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/loader:latest ./pipeline
 docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/loader:latest

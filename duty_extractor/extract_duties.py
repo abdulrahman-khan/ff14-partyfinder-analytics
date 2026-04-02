@@ -3,6 +3,11 @@ Bronze → Duty Reference Extractor
 
 appends new duty names to duties.csv in GCS
 then loads full file into bronze.duties
+
+
+docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest ./duty_extractor
+docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest
+
 """
 
 import os

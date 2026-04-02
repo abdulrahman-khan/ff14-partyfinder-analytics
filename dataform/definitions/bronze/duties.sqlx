@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "bronze",
+  name: "duties",
+  description: "Unique duty names extracted from raw_listings — managed by the duty extractor Cloud Run Job"
+}

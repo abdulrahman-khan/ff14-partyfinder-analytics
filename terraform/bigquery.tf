@@ -1,4 +1,4 @@
-#  Datasets: Bronze / Silver / Gold 
+# ── Datasets: Bronze / Silver / Gold ─────────────────────────────────────────
 resource "google_bigquery_dataset" "bronze" {
   dataset_id  = "bronze"
   location    = var.region
@@ -20,7 +20,7 @@ resource "google_bigquery_dataset" "gold" {
   labels      = { project = "ff14-pf", env = "prod" }
 }
 
-#  Bronze: raw_listings 
+# ── Bronze: raw_listings ──────────────────────────────────────────────────────
 resource "google_bigquery_table" "bronze_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -53,7 +53,7 @@ resource "google_bigquery_table" "bronze_listings" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-#  Bronze: file_loads (loader state tracking) 
+# ── Bronze: file_loads ────────────────────────────────────────────────────────
 resource "google_bigquery_table" "file_loads" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -61,18 +61,18 @@ resource "google_bigquery_table" "file_loads" {
   deletion_protection = false
 
   schema = jsonencode([
-    { name = "file_name",     type = "STRING",    mode = "REQUIRED" },
-    { name = "status",        type = "STRING",    mode = "REQUIRED" },
-    { name = "started_at",    type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "completed_at",  type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "failed_at",     type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "error",         type = "STRING",    mode = "NULLABLE" }
+    { name = "file_name",    type = "STRING",    mode = "REQUIRED" },
+    { name = "status",       type = "STRING",    mode = "REQUIRED" },
+    { name = "started_at",   type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "completed_at", type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "failed_at",    type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "error",        type = "STRING",    mode = "NULLABLE" }
   ])
 
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-#  Bronze: failed_files 
+# ── Bronze: failed_files ──────────────────────────────────────────────────────
 resource "google_bigquery_table" "failed_files" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.bronze.dataset_id
@@ -89,7 +89,22 @@ resource "google_bigquery_table" "failed_files" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-#  Silver: listings_clean 
+# ── Bronze: duties ────────────────────────────────────────────────────────────
+resource "google_bigquery_table" "bronze_duties" {
+  project             = var.project_id
+  dataset_id          = google_bigquery_dataset.bronze.dataset_id
+  table_id            = "duties"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "duty",       type = "STRING", mode = "REQUIRED" },
+    { name = "first_seen", type = "DATE",   mode = "NULLABLE" }
+  ])
+
+  labels = { project = "ff14-pf", env = "prod" }
+}
+
+# ── Silver: listings_clean ────────────────────────────────────────────────────
 resource "google_bigquery_table" "silver_listings" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.silver.dataset_id
@@ -101,35 +116,51 @@ resource "google_bigquery_table" "silver_listings" {
     field = "scraped_at"
   }
 
-  clustering = ["world", "category", "duty"]
+  clustering = ["pf_world", "duty", "scraped_date"]
 
   schema = jsonencode([
-    { name = "listing_id",        type = "STRING",    mode = "NULLABLE" },
-    { name = "duty",              type = "STRING",    mode = "NULLABLE" },
-    { name = "category",          type = "STRING",    mode = "NULLABLE" },
-    { name = "description",       type = "STRING",    mode = "NULLABLE" },
-    { name = "creator",           type = "STRING",    mode = "NULLABLE" },
-    { name = "creator_server",    type = "STRING",    mode = "NULLABLE" },
-    { name = "world",             type = "STRING",    mode = "NULLABLE" },
-    { name = "datacenter",        type = "STRING",    mode = "NULLABLE" },
-    { name = "region",            type = "STRING",    mode = "NULLABLE" },
-    { name = "min_ilvl",          type = "INTEGER",   mode = "NULLABLE" },
-    { name = "slots_filled",      type = "INTEGER",   mode = "NULLABLE" },
-    { name = "slots_total",       type = "INTEGER",   mode = "NULLABLE" },
-    { name = "slots_open",        type = "INTEGER",   mode = "NULLABLE" },
-    { name = "open_tank_slots",   type = "INTEGER",   mode = "NULLABLE" },
-    { name = "open_healer_slots", type = "INTEGER",   mode = "NULLABLE" },
-    { name = "open_dps_slots",    type = "INTEGER",   mode = "NULLABLE" },
-    { name = "scraped_at",        type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "first_seen",        type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "last_seen",         type = "TIMESTAMP", mode = "NULLABLE" },
-    { name = "listing_age_mins",  type = "INTEGER",   mode = "NULLABLE" }
+    { name = "listing_id",          type = "STRING",    mode = "NULLABLE" },
+    { name = "duty",                type = "STRING",    mode = "NULLABLE" },
+    { name = "is_savage",           type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_ultimate",         type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_unreal",           type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_extreme",          type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_cross",            type = "INTEGER",   mode = "NULLABLE" },
+    { name = "category",            type = "STRING",    mode = "NULLABLE" },
+    { name = "description_clean",   type = "STRING",    mode = "NULLABLE" },
+    { name = "is_loot",             type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_practice",         type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_clear",            type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_one_per_job",      type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_weekly_unclaimed", type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_duty_completion",  type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_duty_complete",    type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_duty_incomplete",  type = "INTEGER",   mode = "NULLABLE" },
+    { name = "creator_name",        type = "STRING",    mode = "NULLABLE" },
+    { name = "creator_world",       type = "STRING",    mode = "NULLABLE" },
+    { name = "creator_datacenter",  type = "STRING",    mode = "NULLABLE" },
+    { name = "creator_region",      type = "STRING",    mode = "NULLABLE" },
+    { name = "pf_world",            type = "STRING",    mode = "NULLABLE" },
+    { name = "pf_datacenter",       type = "STRING",    mode = "NULLABLE" },
+    { name = "pf_region",           type = "STRING",    mode = "NULLABLE" },
+    { name = "is_traveller",        type = "INTEGER",   mode = "NULLABLE" },
+    { name = "is_voyager",          type = "INTEGER",   mode = "NULLABLE" },
+    { name = "min_ilvl",            type = "INTEGER",   mode = "NULLABLE" },
+    { name = "slots_filled",        type = "INTEGER",   mode = "NULLABLE" },
+    { name = "slots_total",         type = "INTEGER",   mode = "NULLABLE" },
+    { name = "slots_open",          type = "INTEGER",   mode = "NULLABLE" },
+    { name = "scraped_at",          type = "TIMESTAMP", mode = "NULLABLE" },
+    { name = "scraped_date",        type = "DATE",      mode = "NULLABLE" },
+    { name = "scraped_time",        type = "TIME",      mode = "NULLABLE" },
+    { name = "open_tank_slots",     type = "INTEGER",   mode = "NULLABLE" },
+    { name = "open_healer_slots",   type = "INTEGER",   mode = "NULLABLE" },
+    { name = "open_dps_slots",      type = "INTEGER",   mode = "NULLABLE" }
   ])
 
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-#  Gold: duty_stats 
+# ── Gold: duty_stats ──────────────────────────────────────────────────────────
 resource "google_bigquery_table" "gold_duty_stats" {
   project             = var.project_id
   dataset_id          = google_bigquery_dataset.gold.dataset_id
@@ -161,10 +192,7 @@ resource "google_bigquery_table" "gold_duty_stats" {
   labels = { project = "ff14-pf", env = "prod" }
 }
 
-
-
-
-#  Dataset IAM 
+# ── Dataset IAM ───────────────────────────────────────────────────────────────
 resource "google_bigquery_dataset_iam_member" "pipeline_bronze" {
   dataset_id = google_bigquery_dataset.bronze.dataset_id
   role       = "roles/bigquery.dataEditor"
@@ -181,18 +209,4 @@ resource "google_bigquery_dataset_iam_member" "pipeline_gold" {
   dataset_id = google_bigquery_dataset.gold.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.pipeline.email}"
-}
-
-resource "google_bigquery_table" "bronze_duties" {
-  project             = var.project_id
-  dataset_id          = google_bigquery_dataset.bronze.dataset_id
-  table_id            = "duties"
-  deletion_protection = false
-
-  schema = jsonencode([
-    { name = "duty",       type = "STRING", mode = "REQUIRED" },
-    { name = "first_seen", type = "DATE",   mode = "NULLABLE" }
-  ])
-
-  labels = { project = "ff14-pf", env = "prod" }
 }

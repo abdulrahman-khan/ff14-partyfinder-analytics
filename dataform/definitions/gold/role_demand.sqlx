@@ -11,7 +11,7 @@ config {
 
 SELECT
   duty,
-  category,
+  is_cross,
   world,
   datacenter,
   region,
