@@ -121,30 +121,6 @@ def _insert_file_status(bq_client, file_name: str, status: str, error: str = Non
     else:
         log.info("file_loads: %s → %s", file_name, status)
 
-def _update_file_status(bq_client, file_name: str, status: str, error: str = None):
-    if status == "completed":
-        set_clause = "status = 'completed', completed_at = CURRENT_TIMESTAMP()"
-        params = [bigquery.ScalarQueryParameter("file_name", "STRING", file_name)]
-    else:
-        set_clause = "status = 'failed', failed_at = CURRENT_TIMESTAMP(), error = @error"
-        params = [
-            bigquery.ScalarQueryParameter("file_name", "STRING", file_name),
-            bigquery.ScalarQueryParameter("error",     "STRING", error or "unknown"),
-        ]
-
-    query = f"""
-        UPDATE `{BQ_PROJECT}.{BQ_DATASET}.file_loads`
-        SET    {set_clause}
-        WHERE  file_name = @file_name
-          AND  status    = 'processing'
-    """
-    job = bq_client.query(
-        query,
-        job_config=bigquery.QueryJobConfig(query_parameters=params),
-    )
-    job.result()
-    log.info("file_loads: %s → %s", file_name, status)
-
 
 # =============================================================================
 # TRANSFORM
