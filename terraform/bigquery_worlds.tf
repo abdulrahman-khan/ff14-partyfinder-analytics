@@ -3,39 +3,20 @@
 
 # external table in BigQuery points directly to GCS, so no need to run jobs
 
-# -- Worlds Data (csv file location
-resource "google_storage_bucket_object" "worlds_csv" {
-  name   = "worlds_data/worlds.csv"
-  bucket = google_storage_bucket.raw.name
-  source = "${path.module}/../data/worlds.csv"
-}
+# materializes it as a real native table in silver -> no more loading for every query
 
-# -- BigQuery external table ---------------------------------------------------
-resource "google_bigquery_table" "bronze_worlds" {
-  project    = var.project_id
-  dataset_id = google_bigquery_dataset.bronze.dataset_id
-  table_id   = "worlds"
 
-  description         = "FFXIV world → datacenter → region reference. Source: GCS CSV."
+resource "google_bigquery_table" "silver_worlds_clean" {
+  project             = var.project_id
+  dataset_id          = google_bigquery_dataset.silver.dataset_id
+  table_id            = "worlds_clean"
   deletion_protection = false
 
-  external_data_configuration {
-    source_uris   = ["gs://${google_storage_bucket.raw.name}/worlds_data/worlds.csv"]
-    source_format = "CSV"
-    autodetect    = false
+  schema = jsonencode([
+    { name = "world",      type = "STRING", mode = "REQUIRED" },
+    { name = "datacenter", type = "STRING", mode = "REQUIRED" },
+    { name = "region",     type = "STRING", mode = "REQUIRED" },
+  ])
 
-    csv_options {
-      quote             = "\""
-      field_delimiter   = ","
-      skip_leading_rows = 0
-    }
-
-    schema = jsonencode([
-      { name = "world",      type = "STRING", mode = "REQUIRED" },
-      { name = "datacenter", type = "STRING", mode = "REQUIRED" },
-      { name = "region",     type = "STRING", mode = "REQUIRED" },
-    ])
-  }
-
-  depends_on = [google_storage_bucket_object.worlds_csv]
+  labels = { project = "ff14-pf", env = "prod" }
 }

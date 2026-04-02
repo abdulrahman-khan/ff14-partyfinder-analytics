@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "silver",
+  name: "worlds_clean",
+  description: "Native worlds reference table — managed manually via scripts/load_worlds_clean.sql"
+}
