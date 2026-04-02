@@ -14,6 +14,19 @@ resource "google_workflows_workflow" "ff14_pipeline" {
               - region: "${var.region}"
               - job_name: "ff14-pf-loader"
 
+        - run_duty_extractor:
+            call: http.post
+            args:
+              url: $${"https://" + region + "-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/" + project + "/jobs/ff14-pf-duty-extractor:run"}
+              auth:
+                type: OAuth2
+            result: duty_response
+
+        - wait_for_duty_extractor:
+            call: sys.sleep
+            args:
+              seconds: 30
+
         - run_loader:
             call: http.post
             args:

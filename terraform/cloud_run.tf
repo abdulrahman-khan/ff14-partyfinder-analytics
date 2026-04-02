@@ -103,3 +103,39 @@ resource "google_cloud_run_v2_job" "loader" {
     google_service_account.pipeline,
   ]
 }
+
+resource "google_cloud_run_v2_job" "duty_extractor" {
+  name     = "ff14-pf-duty-extractor"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.pipeline.email
+
+      containers {
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.scraper.repository_id}/duty-extractor:latest"
+
+        env {
+          name  = "GCS_BUCKET"
+          value = google_storage_bucket.raw.name
+        }
+        env {
+          name  = "BQ_PROJECT"
+          value = var.project_id
+        }
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+
+      max_retries = 2
+      timeout     = "300s"
+    }
+  }
+
+  labels = { project = "ff14-pf", env = "prod" }
+}

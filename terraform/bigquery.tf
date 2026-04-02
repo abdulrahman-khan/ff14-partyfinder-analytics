@@ -182,3 +182,17 @@ resource "google_bigquery_dataset_iam_member" "pipeline_gold" {
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.pipeline.email}"
 }
+
+resource "google_bigquery_table" "bronze_duties" {
+  project             = var.project_id
+  dataset_id          = google_bigquery_dataset.bronze.dataset_id
+  table_id            = "duties"
+  deletion_protection = false
+
+  schema = jsonencode([
+    { name = "duty",       type = "STRING", mode = "REQUIRED" },
+    { name = "first_seen", type = "DATE",   mode = "NULLABLE" }
+  ])
+
+  labels = { project = "ff14-pf", env = "prod" }
+}
