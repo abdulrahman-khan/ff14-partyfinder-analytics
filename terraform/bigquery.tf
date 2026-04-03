@@ -97,8 +97,7 @@ resource "google_bigquery_table" "bronze_duties" {
   deletion_protection = false
 
   schema = jsonencode([
-    { name = "duty",       type = "STRING", mode = "REQUIRED" },
-    { name = "first_seen", type = "DATE",   mode = "NULLABLE" }
+    { name = "duty", type = "STRING", mode = "REQUIRED" }
   ])
 
   labels = { project = "ff14-pf", env = "prod" }

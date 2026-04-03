@@ -1,13 +1,13 @@
 """
 Bronze → Duty Reference Extractor
 
-appends new duty names to duties.csv in GCS
-then loads full file into bronze.duties
-
+Queries bronze for unique duty names, appends new ones to duties.csv in GCS,
+then loads the updated file into bronze.duties in BigQuery.
+Only writes to GCS and BQ if new duties are found.
 
 docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest ./duty_extractor
 docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest
-
+gcloud run jobs execute ff14-pf-duty-extractor --region=us-central1
 """
 
 import os
@@ -25,16 +25,16 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-GCS_BUCKET    = os.environ.get("GCS_BUCKET",    "ff14-pf-data-raw")
-BQ_PROJECT    = os.environ.get("BQ_PROJECT",    "ff14-pf-data")
-DUTIES_PATH   = "reference_data/duties.csv"
+GCS_BUCKET  = os.environ.get("GCS_BUCKET",  "ff14-pf-data-raw")
+BQ_PROJECT  = os.environ.get("BQ_PROJECT",  "ff14-pf-data")
+DUTIES_PATH = "reference_data/duties.csv"
 
 
 def get_existing_duties(bucket) -> set:
     """Read existing duties from GCS CSV, return as a set."""
     blob = bucket.blob(DUTIES_PATH)
     if not blob.exists():
-        log.info("No existing duties.csv found — will create fresh")
+        log.info("No existing duties.csv — will create fresh")
         return set()
 
     content = blob.download_as_text()
@@ -60,37 +60,33 @@ def get_bronze_duties(bq_client) -> set:
 def write_duties_to_gcs(bucket, duties: set):
     """Write full duty list to GCS as CSV."""
     output = io.StringIO()
-    writer = csv.DictWriter(output, fieldnames=["duty", "first_seen"])
+    writer = csv.DictWriter(output, fieldnames=["duty"])
     writer.writeheader()
     for duty in sorted(duties):
-        writer.writerow({
-            "duty":       duty,
-            "first_seen": datetime.now(timezone.utc).date().isoformat(),
-        })
+        writer.writerow({"duty": duty})
 
     blob = bucket.blob(DUTIES_PATH)
     blob.upload_from_string(output.getvalue(), content_type="text/csv")
     log.info("Wrote %d duties to gs://%s/%s", len(duties), GCS_BUCKET, DUTIES_PATH)
 
 
-def load_duties_to_bq(bq_client, bucket):
+def load_duties_to_bq(bq_client):
     """Load duties CSV from GCS into bronze.duties via load job."""
-    uri       = f"gs://{GCS_BUCKET}/{DUTIES_PATH}"
-    table_ref = f"{BQ_PROJECT}.bronze.duties"
+    uri        = f"gs://{GCS_BUCKET}/{DUTIES_PATH}"
+    table_ref  = f"{BQ_PROJECT}.bronze.duties"
 
     job_config = bigquery.LoadJobConfig(
-        source_format        = bigquery.SourceFormat.CSV,
-        skip_leading_rows    = 1,
-        write_disposition    = bigquery.WriteDisposition.WRITE_TRUNCATE,
+        source_format     = bigquery.SourceFormat.CSV,
+        skip_leading_rows = 1,
+        write_disposition = bigquery.WriteDisposition.WRITE_TRUNCATE,
         schema = [
-            bigquery.SchemaField("duty",       "STRING", mode="REQUIRED"),
-            bigquery.SchemaField("first_seen", "DATE",   mode="NULLABLE"),
+            bigquery.SchemaField("duty", "STRING", mode="REQUIRED"),
         ],
     )
 
     load_job = bq_client.load_table_from_uri(uri, table_ref, job_config=job_config)
     load_job.result()
-    log.info("Loaded duties into %s", table_ref)
+    log.info("Loaded %s into BigQuery", table_ref)
 
 
 def run() -> dict:
@@ -102,15 +98,15 @@ def run() -> dict:
     bronze_duties   = get_bronze_duties(bq_client)
 
     new_duties = bronze_duties - existing_duties
-    log.info("Found %d new duties to append", len(new_duties))
+    log.info("Found %d new duties", len(new_duties))
 
-    if not new_duties and existing_duties:
-        log.info("No new duties — skipping write")
+    if not new_duties:
+        log.info("No new duties — skipping GCS and BQ update")
         return {"duties_total": len(existing_duties), "duties_new": 0}
 
-    all_duties = existing_duties | bronze_duties
+    all_duties = existing_duties | new_duties
     write_duties_to_gcs(bucket, all_duties)
-    load_duties_to_bq(bq_client, bucket)
+    load_duties_to_bq(bq_client)
 
     return {"duties_total": len(all_duties), "duties_new": len(new_duties)}
 

@@ -66,3 +66,9 @@ resource "google_project_iam_member" "pipeline_dataform_editor" {
   role    = "roles/dataform.editor"
   member  = "serviceAccount:${google_service_account.pipeline.email}"
 }
+
+resource "google_storage_bucket_iam_member" "pipeline_writer" {
+  bucket = google_storage_bucket.raw.name
+  role   = "roles/storage.objectCreator"
+  member = "serviceAccount:${google_service_account.pipeline.email}"
+}
