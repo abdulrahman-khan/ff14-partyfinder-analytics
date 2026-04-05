@@ -1,5 +1,5 @@
 """
-xivpf.com Party Finder Scraper — GCP Edition
+xivpf.com Party Finder Scraper - GCP Edition
 =============================================
 Scrapes xivpf.com/listings and writes raw JSON to GCS.
 
@@ -107,7 +107,7 @@ def parse_listings(html: str) -> list[dict]:
     if not cards:
         cards = soup.select("li.listing")
     if not cards:
-        log.warning("Could not find listing cards — page structure may have changed")
+        log.warning("Could not find listing cards - page structure may have changed")
         return []
 
     log.info("Found %d listing cards", len(cards))
@@ -239,10 +239,10 @@ def run() -> dict:
     log.info("Parsed %d listings", len(listings))
 
     if not listings:
-        log.warning("No listings found — page structure may have changed!")
+        log.warning("No listings found - page structure may have changed!")
         write_dead_letter(
             Exception("Zero listings parsed"),
-            context="empty_parse — check xivpf.com HTML structure",
+            context="empty_parse - check xivpf.com HTML structure",
         )
         return {"listings": 0, "gcs_path": None}
 

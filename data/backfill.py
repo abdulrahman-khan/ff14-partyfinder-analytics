@@ -22,10 +22,10 @@ SQLITE_FILE = "xivpf.db"
 BQ_PROJECT  = "ff14-pf-data"
 BQ_DATASET  = "bronze"
 BQ_TABLE    = "raw_listings"
-BATCH_SIZE  = 500   # BQ streaming insert max is 50MB / 50k rows per request — 500 is safe
+BATCH_SIZE  = 500   # BQ streaming insert max is 50MB / 50k rows per request - 500 is safe
 
 def convert_row(row: sqlite3.Row) -> dict:
-    # slot_details is already a JSON string in SQLite — pass through as-is
+    # slot_details is already a JSON string in SQLite - pass through as-is
     slot_details = row["slot_details"]
     if slot_details:
         try:
@@ -34,7 +34,7 @@ def convert_row(row: sqlite3.Row) -> dict:
         except (json.JSONDecodeError, TypeError):
             slot_details = None
 
-    # SQLite timestamps are strings — normalize to ISO format for BQ TIMESTAMP
+    # SQLite timestamps are strings - normalize to ISO format for BQ TIMESTAMP
     def to_iso(ts):
         if not ts:
             return None

@@ -3,7 +3,7 @@ config {
   schema: "gold",
   name: "fct_listings",
   uniqueKey: ["listing_id", "scraped_at"],
-  description: "Core fact table — one row per listing per scrape snapshot, keyed to dims",
+  description: "Core fact table - one row per listing per scrape snapshot, keyed to dims",
   bigquery: {
     partitionBy: "scraped_date",
     clusterBy: ["pf_world_key", "duty_key", "scraped_date"]
@@ -41,7 +41,7 @@ config {
     open_healer_slots: "Number of unfilled healer slots, derived from slot_details JSON in bronze",
     open_dps_slots: "Number of unfilled DPS slots, derived from slot_details JSON in bronze",
     scraped_at: "Timestamp of the scrape that captured this listing snapshot",
-    scraped_date: "Date portion of scraped_at — used as partition key",
+    scraped_date: "Date portion of scraped_at - used as partition key",
     scraped_time: "Time portion of scraped_at"
   }
 }

@@ -1,0 +1,43 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "spine_hour_datacenter",
+  description: "Data spine - one row per hour per datacenter for time series completeness. needed for LJ on fct_listings to preserve zero-activity hours in downstream analysis",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["datacenter"]
+  },
+  assertions: {
+    nonNull: ["hour_start", "date", "hour", "datacenter", "region"],
+    uniqueKey: ["hour_start", "datacenter"]
+  },
+  columns: {
+    hour_start: "Timestamp marking the start of the hour (e.g. 2025-01-01 03:00:00 UTC)",
+    date: "Date portion of hour_start - used as partition key",
+    hour: "Hour of day (0-23)",
+    datacenter: "Datacenter",
+    region: "Region"
+  }
+}
+
+WITH hour_series AS (
+  SELECT
+    TIMESTAMP_TRUNC(scraped_at, HOUR) AS hour_start
+  FROM ${ref("fct_listings")}
+  GROUP BY 1
+),
+datacenters AS (
+  SELECT DISTINCT
+    datacenter,
+    region
+  FROM ${ref("dim_worlds")}
+)
+
+SELECT
+  h.hour_start,
+  DATE(h.hour_start)                AS date,
+  EXTRACT(HOUR FROM h.hour_start)   AS hour,
+  d.datacenter,
+  d.region
+FROM hour_series h
+CROSS JOIN datacenters d

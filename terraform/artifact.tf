@@ -12,5 +12,5 @@ resource "google_artifact_registry_repository" "scraper" {
 
 output "docker_repo" {
   value       = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.scraper.repository_id}"
-  description = "Full Artifact Registry path — use this as your Docker image prefix"
+  description = "Full Artifact Registry path - use this as your Docker image prefix"
 }

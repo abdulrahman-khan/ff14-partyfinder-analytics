@@ -2,14 +2,14 @@ config {
   type: "incremental",
   schema: "gold",
   name: "role_demand",
-  uniqueKey: ["duty", "pf_world", "date", "hour"],
-  description: "Role demand per duty — which roles are hardest to fill",
+  uniqueKey: ["duty", "is_cross", "pf_world", "date", "hour"],
+  description: "Role demand per duty - which roles are hardest to fill",
   bigquery: {
     partitionBy: "date"
   },
   assertions: {
     nonNull: ["duty", "pf_world", "date", "hour", "total_listings", "most_wanted_role"],
-    uniqueKey: ["duty", "pf_world", "date", "hour"]
+    uniqueKey: ["duty", "is_cross", "pf_world", "date", "hour"]
   }
 }
 

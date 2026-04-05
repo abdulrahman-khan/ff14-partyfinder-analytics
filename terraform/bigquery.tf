@@ -2,7 +2,7 @@
 resource "google_bigquery_dataset" "bronze" {
   dataset_id  = "bronze"
   location    = var.region
-  description = "Raw ingested data from GCS — append only"
+  description = "Raw ingested data from GCS - append only"
   labels      = { project = "ff14-pf", env = "prod" }
 }
 

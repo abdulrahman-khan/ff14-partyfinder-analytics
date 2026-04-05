@@ -68,7 +68,7 @@ WITH base AS (
     raw_listings.slots_total - raw_listings.slots_filled            AS slots_open,
     raw_listings.slot_details,
 
-    -- timestamp fields — scraped_at is already UTC
+    -- timestamp fields - scraped_at is already UTC
     raw_listings.scraped_at,
     DATE(raw_listings.scraped_at)                                   AS scraped_date,
     TIME(raw_listings.scraped_at)                                   AS scraped_time,
@@ -127,7 +127,7 @@ deduped AS (
   FROM base
 )
 
--- drop rn and raw slot_details — not needed downstream
+-- drop rn and raw slot_details - not needed downstream
 SELECT * EXCEPT(rn, slot_details)
 FROM deduped
 WHERE rn = 1

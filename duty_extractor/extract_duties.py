@@ -34,7 +34,7 @@ def get_existing_duties(bucket) -> set:
     """Read existing duties from GCS CSV, return as a set."""
     blob = bucket.blob(DUTIES_PATH)
     if not blob.exists():
-        log.info("No existing duties.csv — will create fresh")
+        log.info("No existing duties.csv - will create fresh")
         return set()
 
     content = blob.download_as_text()
@@ -101,7 +101,7 @@ def run() -> dict:
     log.info("Found %d new duties", len(new_duties))
 
     if not new_duties:
-        log.info("No new duties — skipping GCS and BQ update")
+        log.info("No new duties - skipping GCS and BQ update")
         return {"duties_total": len(existing_duties), "duties_new": 0}
 
     all_duties = existing_duties | new_duties

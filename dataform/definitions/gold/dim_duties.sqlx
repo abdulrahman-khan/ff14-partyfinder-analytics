@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "dim_duties",
-  description: "Duty reference dimension — one row per unique duty with difficulty flags",
+  description: "Duty reference dimension - one row per unique duty with difficulty flags",
   bigquery: {
     clusterBy: ["is_savage", "is_ultimate"]
   },

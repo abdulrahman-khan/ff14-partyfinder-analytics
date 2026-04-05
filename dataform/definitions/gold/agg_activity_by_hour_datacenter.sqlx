@@ -1,0 +1,76 @@
+config {
+  type: "incremental",
+  schema: "gold",
+  name: "agg_activity_by_hour_datacenter",
+  uniqueKey: ["hour_start", "datacenter", "is_high_end", "is_cross"],
+  description: "Hourly listing activity aggregated by datacenter",
+  bigquery: {
+    partitionBy: "date",
+    clusterBy: ["datacenter", "region"]
+  },
+  assertions: {
+    nonNull: ["hour_start", "date", "datacenter", "region"],
+    uniqueKey: ["hour_start", "datacenter", "is_high_end", "is_cross"]
+  },
+  columns: {
+    hour_start: "Timestamp marking the start of the hour",
+    date: "Date portion of hour_start - partition key",
+    hour: "Hour of day (0-23)",
+    region: "Region (e.g. North-America, Japan)",
+    datacenter: "Datacenter (e.g. Crystal, Elemental)",
+    is_high_end: "1 = savage/ultimate/unreal/extreme only, 0 = all content",
+    is_cross: "1 = cross-world listings only, 0 = all listings",
+    listing_count: "Distinct listing IDs active in this hour",
+    avg_slots_open: "Average open slots across listings in this hour",
+    total_open_tank: "Total unfilled tank slots across listings",
+    total_open_healer: "Total unfilled healer slots across listings",
+    total_open_dps: "Total unfilled DPS slots across listings"
+  }
+}
+
+WITH base AS (
+  SELECT
+    spine.hour_start,
+    DATE(spine.hour_start)                          AS date,
+    EXTRACT(HOUR FROM spine.hour_start)             AS hour,
+    spine.region,
+    spine.datacenter,
+    COALESCE(duty.is_high_end, 0)                   AS is_high_end,
+    COALESCE(listings.is_cross, 0)                  AS is_cross,
+    listings.listing_id,
+    listings.slots_open,
+    listings.open_tank_slots,
+    listings.open_healer_slots,
+    listings.open_dps_slots
+  FROM gold.spine_hour_datacenter spine
+  LEFT JOIN gold.dim_worlds world
+    ON world.datacenter = spine.datacenter
+  LEFT JOIN gold.fct_listings listings
+    ON listings.pf_world_key = world.world_key
+    AND TIMESTAMP_TRUNC(listings.scraped_at, HOUR) = spine.hour_start
+  LEFT JOIN gold.dim_duties duty
+    ON duty.duty_key = listings.duty_key
+)
+
+SELECT
+  hour_start,
+  date,
+  hour,
+  region,
+  datacenter,
+  is_high_end,
+  is_cross,
+  COUNT(DISTINCT listing_id)    AS listing_count,
+  ROUND(AVG(slots_open), 2)     AS avg_slots_open,
+  SUM(open_tank_slots)          AS total_open_tank,
+  SUM(open_healer_slots)        AS total_open_healer,
+  SUM(open_dps_slots)           AS total_open_dps
+FROM base
+GROUP BY 1, 2, 3, 4, 5, 6, 7
+
+${ when(incremental(),
+    `HAVING date >= (
+      SELECT COALESCE(MAX(date), DATE('2000-01-01'))
+      FROM ${self()}
+    )`
+) }

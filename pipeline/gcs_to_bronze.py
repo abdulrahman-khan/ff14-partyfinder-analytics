@@ -154,7 +154,7 @@ def flatten_file(blob) -> list[dict]:
             "min_ilvl":      item.get("min_ilvl"),
             "slots_filled":  item.get("slots_filled"),
             "slots_total":   item.get("slots_total"),
-            # slot_details arrives as a list — serialise to JSON string for BQ JSON column
+            # slot_details arrives as a list - serialise to JSON string for BQ JSON column
             "slot_details":  json.dumps(item["slot_details"]) if item.get("slot_details") else None,
             "expires_in":    item.get("expires_in"),
             "updated_at":    item.get("updated_at"),
@@ -195,7 +195,7 @@ def run() -> dict:
     files = list_unprocessed_files(bucket, bq_client)
 
     if not files:
-        log.info("Nothing to load — exiting")
+        log.info("Nothing to load - exiting")
         return {"files_processed": 0, "files_failed": 0, "rows_inserted": 0}
 
     total_rows   = 0
@@ -218,7 +218,7 @@ def run() -> dict:
             continue
 
         if not rows:
-            log.warning("No rows in %s — marking complete", blob.name)
+            log.warning("No rows in %s - marking complete", blob.name)
             complete_file(bq_client, blob)
             continue
 
