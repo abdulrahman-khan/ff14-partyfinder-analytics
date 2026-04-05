@@ -6,6 +6,10 @@ config {
   description: "Role demand per duty — which roles are hardest to fill",
   bigquery: {
     partitionBy: "date"
+  },
+  assertions: {
+    nonNull: ["duty", "pf_world", "date", "hour", "total_listings", "most_wanted_role"],
+    uniqueKey: ["duty", "pf_world", "date", "hour"]
   }
 }
 
@@ -27,9 +31,7 @@ SELECT
     WHEN SUM(open_healer_slots) >= SUM(open_dps_slots) THEN 'healer'
     ELSE 'dps'
   END AS most_wanted_role
-
 FROM ${ref("listings_clean")}
-
 WHERE duty IS NOT NULL
   ${ when(incremental(),
     `AND DATE(scraped_at) >= (
@@ -37,5 +39,4 @@ WHERE duty IS NOT NULL
       FROM ${self()}
     )`
   ) }
-
 GROUP BY 1, 2, 3, 4, 5, 6, 7

@@ -7,33 +7,60 @@ config {
   bigquery: {
     partitionBy: "scraped_date",
     clusterBy: ["pf_world_key", "duty_key", "scraped_date"]
+  },
+  assertions: {
+    nonNull: ["fct_key", "duty_key", "pf_world_key", "listing_id", "scraped_at", "scraped_date"],
+    uniqueKey: ["listing_id", "scraped_at"]
+  },
+  columns: {
+    fct_key: "MD5 surrogate key derived from listing_id + scraped_at. Unique identifier for this row",
+    duty_key: "FK to dim_duties.duty_key",
+    pf_world_key: "FK to dim_worlds.world_key",
+    creator_world_key: "FK to dim_worlds.world_key",
+    listing_id: "Natural key from xivpf.com. Doesn't assume unique (same listing can be scrapes multiple times)",
+    duty: "Duty name",
+    pf_world: "World the listing was posted on, denormalized from dim_worlds",
+    creator_world: "Creator's home world, denormalized from dim_worlds",
+    is_traveller: "1 if creator's datacenter differs from the listing's datacenter (creator traveled to another DC)",
+    is_voyager: "1 if creator's region differs from the listing's region (creator traveled to another region)",
+    is_cross: "1 if the listing is flagged as cross-world (open to players from other worlds)",
+    is_loot: "1 if listing indicates loot run",
+    is_practice: "1 if listing indicates practice run",
+    is_clear: "1 if listing indicates a clear run",
+    is_one_per_job: "1 if listing is restricted to one player per job",
+    is_weekly_unclaimed: "1 if listing targets players who have not claimed weekly loot",
+    is_duty_completion: "1 if listing tag is duty completion",
+    is_duty_complete: "1 if listing tag indicates party is already duty complete",
+    is_duty_incomplete: "1 if listing tag indicates party is not yet duty complete",
+    description_clean: "Listing description with all [tag] values stripped",
+    min_ilvl: "Minimum item level as set by creator",
+    slots_filled: "Number of slots filled at scrape time",
+    slots_total: "Total slots in the party (typically 8 for full parties",
+    slots_open: "slots_total minus slots_filled at scrape time",
+    open_tank_slots: "Number of unfilled tank slots, derived from slot_details JSON in bronze",
+    open_healer_slots: "Number of unfilled healer slots, derived from slot_details JSON in bronze",
+    open_dps_slots: "Number of unfilled DPS slots, derived from slot_details JSON in bronze",
+    scraped_at: "Timestamp of the scrape that captured this listing snapshot",
+    scraped_date: "Date portion of scraped_at — used as partition key",
+    scraped_time: "Time portion of scraped_at"
   }
 }
 
 SELECT
-  -- surrogate key for this fact row
   TO_HEX(MD5(CONCAT(
     l.listing_id,
     CAST(l.scraped_at AS STRING)
   )))                               AS fct_key,
-
-  -- foreign keys to dims
   TO_HEX(MD5(l.duty))              AS duty_key,
   TO_HEX(MD5(l.pf_world))         AS pf_world_key,
   TO_HEX(MD5(l.creator_world))    AS creator_world_key,
-
-  -- natural keys kept for convenience
   l.listing_id,
   l.duty,
   l.pf_world,
   l.creator_world,
-
-  -- traveller / voyager
   l.is_traveller,
   l.is_voyager,
   l.is_cross,
-
-  -- listing flags
   l.is_loot,
   l.is_practice,
   l.is_clear,
@@ -42,28 +69,18 @@ SELECT
   l.is_duty_completion,
   l.is_duty_complete,
   l.is_duty_incomplete,
-
-  -- description
   l.description_clean,
-
-  -- item level
   l.min_ilvl,
-
-  -- slots
   l.slots_filled,
   l.slots_total,
   l.slots_open,
   l.open_tank_slots,
   l.open_healer_slots,
   l.open_dps_slots,
-
-  -- time
   l.scraped_at,
   l.scraped_date,
   l.scraped_time
-
 FROM ${ref("listings_clean")} l
-
 ${ when(incremental(),
     `WHERE l.scraped_at > (
       SELECT COALESCE(MAX(scraped_at), TIMESTAMP('2000-01-01'))
