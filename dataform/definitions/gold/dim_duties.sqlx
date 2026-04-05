@@ -1,0 +1,37 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "dim_duties",
+  description: "Duty reference dimension — one row per unique duty with difficulty flags",
+  bigquery: {
+    clusterBy: ["is_savage", "is_ultimate"]
+  }
+}
+
+SELECT
+  TO_HEX(MD5(duty))               AS duty_key,
+  duty,
+
+  -- difficulty flags 
+  CASE WHEN LOWER(duty) LIKE '%(savage)%'                         THEN 1 ELSE 0 END AS is_savage,
+  CASE WHEN LOWER(duty) LIKE '%(ultimate)%'                       THEN 1 ELSE 0 END AS is_ultimate,
+  CASE WHEN LOWER(duty) LIKE '%(unreal)%'                         THEN 1 ELSE 0 END AS is_unreal,
+  CASE WHEN LOWER(duty) LIKE "%(the minstrel's ballad:)%"
+    OR LOWER(duty) LIKE '%(extreme)'                              THEN 1 ELSE 0 END AS is_extreme,
+
+
+
+  -- convenience rollup — any high difficulty
+  CASE WHEN (
+    LOWER(duty) LIKE '%(savage)%'
+    OR LOWER(duty) LIKE '%(ultimate)%'
+    OR LOWER(duty) LIKE '%(unreal)%'
+    OR LOWER(duty) LIKE "%(the minstrel's ballad:)%"
+    OR LOWER(duty) LIKE '%(extreme)'
+  ) THEN 1 ELSE 0 END             AS is_high_end
+
+
+
+    -- CASE WHEN LOWER(duty) LIKE '%treasure map%' THEN 1 ELSE 0 END AS is_map,
+
+FROM ${ref("duties")}

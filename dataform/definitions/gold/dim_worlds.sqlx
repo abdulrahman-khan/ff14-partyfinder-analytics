@@ -1,0 +1,16 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "dim_worlds",
+  description: "World reference dimension — one row per world with datacenter and region",
+  bigquery: {
+    clusterBy: ["region", "datacenter"]
+  }
+}
+
+SELECT
+  TO_HEX(MD5(world))              AS world_key,
+  world,
+  datacenter,
+  region
+FROM ${ref("worlds_clean")}
