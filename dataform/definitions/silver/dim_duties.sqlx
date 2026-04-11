@@ -36,4 +36,4 @@ SELECT
     OR LOWER(duty) LIKE "%(the minstrel's ballad:)%"
     OR LOWER(duty) LIKE '%(extreme)'
   ) THEN 1 ELSE 0 END                                             AS is_high_end
-FROM ${ref("duties")}
+FROM ${ref("raw_duties")}

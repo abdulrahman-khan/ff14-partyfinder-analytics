@@ -1,6 +1,6 @@
 config {
   type: "declaration",
   schema: "bronze",
-  name: "worlds",
+  name: "raw_worlds",
   description: "world to datacenter and region reference table"
 }
