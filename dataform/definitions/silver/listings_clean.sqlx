@@ -1,3 +1,4 @@
+-- listings cleaned
 config {
   type: "incremental",
   schema: "silver",

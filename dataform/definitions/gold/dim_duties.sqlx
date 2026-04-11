@@ -1,3 +1,4 @@
+-- dim_duties
 config {
   type: "table",
   schema: "gold",

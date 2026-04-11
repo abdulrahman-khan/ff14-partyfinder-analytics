@@ -1,3 +1,4 @@
+-- fct_listings
 config {
   type: "incremental",
   schema: "gold",
