@@ -1,7 +1,6 @@
--- dim_duties
 config {
   type: "table",
-  schema: "gold",
+  schema: "silver",
   name: "dim_duties",
   description: "Duty reference dimension - one row per unique duty with difficulty flags",
   bigquery: {
@@ -12,18 +11,18 @@ config {
     uniqueKey: ["duty_key"]
   },
   columns: {
-    duty_key: "MD5 surrogate key derived from duty name. Matches duty_key in fct_listings",
-    duty: "Name of duty specified in party finder",
-    is_savage: "1 if duty is Savage difficulty",
-    is_ultimate: "1 if duty is Ultimate  difficulty",
-    is_unreal: "1 if duty is Unreal difficulty",
-    is_extreme: "1 if duty is Extreme  difficulty",
-    is_high_end: "1 if duty is high end duty"
+    duty_key: "MD5 surrogate key derived from duty name",
+    duty: "Name of duty as it appears in party finder",
+    is_savage: "1 if Savage difficulty",
+    is_ultimate: "1 if Ultimate difficulty",
+    is_unreal: "1 if Unreal difficulty",
+    is_extreme: "1 if Extreme difficulty",
+    is_high_end: "1 if any high-end difficulty flag is set"
   }
 }
 
 SELECT
-  TO_HEX(MD5(duty))               AS duty_key,
+  TO_HEX(MD5(duty))                                               AS duty_key,
   duty,
   CASE WHEN LOWER(duty) LIKE '%(savage)%'                         THEN 1 ELSE 0 END AS is_savage,
   CASE WHEN LOWER(duty) LIKE '%(ultimate)%'                       THEN 1 ELSE 0 END AS is_ultimate,
@@ -36,5 +35,5 @@ SELECT
     OR LOWER(duty) LIKE '%(unreal)%'
     OR LOWER(duty) LIKE "%(the minstrel's ballad:)%"
     OR LOWER(duty) LIKE '%(extreme)'
-  ) THEN 1 ELSE 0 END             AS is_high_end
+  ) THEN 1 ELSE 0 END                                             AS is_high_end
 FROM ${ref("duties")}

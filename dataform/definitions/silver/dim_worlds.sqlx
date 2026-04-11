@@ -1,7 +1,6 @@
--- dim_duties
 config {
   type: "table",
-  schema: "gold",
+  schema: "silver",
   name: "dim_worlds",
   description: "World reference dimension - one row per world with datacenter and region",
   bigquery: {
@@ -12,7 +11,7 @@ config {
     uniqueKey: ["world_key"]
   },
   columns: {
-    world_key: "MD5 surrogate key derived from world name. Used as both pf_world_key and creator_world_key in fct_listings",
+    world_key: "MD5 surrogate key derived from world name",
     world: "World name",
     datacenter: "Datacenter the world belongs to",
     region: "Region the datacenter belongs to"

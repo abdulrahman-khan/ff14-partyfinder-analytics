@@ -1,0 +1,129 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  name: "fct_listings",
+  uniqueKey: ["listing_id", "scraped_at"],
+  description: "Full snapshot fact table - one row per listing per scrape. Contains every capture of a listing across all scrapes.",
+  bigquery: {
+    partitionBy: "scraped_date",
+    clusterBy: ["pf_world_key", "duty_key", "scraped_date"]
+  },
+  assertions: {
+    nonNull: ["fct_key", "duty_key", "pf_world_key", "listing_id", "scraped_at", "scraped_date"],
+    uniqueKey: ["listing_id", "scraped_at"]
+  }
+}
+
+
+WITH base AS (
+
+  SELECT
+    TO_HEX(MD5(CONCAT(
+      listing_id,
+      CAST(scraped_at AS STRING)
+    )))                                                             AS fct_key,
+    TO_HEX(MD5(raw_listings.duty))                                 AS duty_key,
+    TO_HEX(MD5(raw_listings.world))                                AS pf_world_key,
+    -- TO_HEX(MD5(raw_listings.creator_server))                       AS creator_world_key,
+    CASE 
+      WHEN raw_listings.creator_server IS NULL THEN NULL 
+      ELSE TO_HEX(MD5(raw_listings.creator_server)) 
+    END AS creator_world_key, 
+
+    raw_listings.listing_id,
+    raw_listings.duty,
+    raw_listings.world                                              AS pf_world,
+    raw_listings.creator_server                                     AS creator_world,
+    raw_listings.source_file,
+
+    CASE
+      WHEN LOWER(TRIM(raw_listings.category)) = 'cross' THEN 1
+      ELSE 0
+    END                                                             AS is_cross,
+
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[loot]%'                                    THEN 1 ELSE 0 END AS is_loot,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[practice]%'                                THEN 1 ELSE 0 END AS is_practice,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[clear]%'                                   THEN 1 ELSE 0 END AS is_clear,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[one player per job]%'                      THEN 1 ELSE 0 END AS is_one_per_job,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[duty complete (weekly reward unclaimed)]%' THEN 1 ELSE 0 END AS is_weekly_unclaimed,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[duty completion]%'                         THEN 1 ELSE 0 END AS is_duty_completion,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[duty complete]%'                           THEN 1 ELSE 0 END AS is_duty_complete,
+    CASE WHEN LOWER(raw_listings.description) LIKE '%[duty incomplete]%'                         THEN 1 ELSE 0 END AS is_duty_incomplete,
+
+    TRIM(REGEXP_REPLACE(raw_listings.description, r'\[[^\]]*\]', '')) AS description_clean,
+
+    -- world enrichment for traveller/voyager logic
+    w_pf.datacenter                                                 AS pf_datacenter,
+    w_pf.region                                                     AS pf_region,
+    w_creator.datacenter                                            AS creator_datacenter,
+    w_creator.region                                                AS creator_region,
+
+    CASE
+      WHEN LOWER(TRIM(w_pf.datacenter)) = LOWER(TRIM(w_creator.datacenter)) THEN 0
+      ELSE 1
+    END                                                             AS is_traveller,
+    CASE
+      WHEN LOWER(TRIM(w_pf.region)) = LOWER(TRIM(w_creator.region)) THEN 0
+      ELSE 1
+    END                                                             AS is_voyager,
+
+    raw_listings.min_ilvl,
+    raw_listings.slots_filled,
+    raw_listings.slots_total,
+    raw_listings.slots_total - raw_listings.slots_filled            AS slots_open,
+
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'tank' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(raw_listings.slot_details)) AS slot
+    )                                                               AS open_tank_slots,
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'healer' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(raw_listings.slot_details)) AS slot
+    )                                                               AS open_healer_slots,
+    (
+      SELECT COUNTIF(
+        JSON_VALUE(slot, '$.filled') = 'false'
+        AND 'dps' IN UNNEST(JSON_VALUE_ARRAY(slot, '$.roles'))
+      )
+      FROM UNNEST(JSON_QUERY_ARRAY(raw_listings.slot_details)) AS slot
+    )                                                               AS open_dps_slots,
+
+    raw_listings.scraped_at,
+    DATE(raw_listings.scraped_at)                                   AS scraped_date,
+    TIME(raw_listings.scraped_at)                                   AS scraped_time
+
+  FROM ${ref("raw_listings")} raw_listings
+  LEFT JOIN ${ref("worlds_clean")} w_pf
+    ON LOWER(TRIM(raw_listings.world)) = LOWER(TRIM(w_pf.world))
+  LEFT JOIN ${ref("worlds_clean")} w_creator
+    ON LOWER(TRIM(raw_listings.creator_server)) = LOWER(TRIM(w_creator.world))
+
+  WHERE raw_listings.listing_id IS NOT NULL
+    AND raw_listings.duty IS NOT NULL
+    ${ when(incremental(),
+        `AND raw_listings.scraped_at > (
+          SELECT COALESCE(MAX(scraped_at), TIMESTAMP('2000-01-01'))
+          FROM ${self()}
+        )`
+    ) }
+)
+,
+
+deduped AS (
+  SELECT *,
+    ROW_NUMBER() OVER (
+      PARTITION BY listing_id, scraped_at
+      ORDER BY source_file DESC  -- or any tiebreaker, source_file is available from bronze
+    ) AS rn
+  FROM base
+)
+
+SELECT * EXCEPT(rn)
+FROM deduped
+WHERE rn = 1

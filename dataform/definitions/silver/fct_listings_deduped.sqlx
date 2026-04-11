@@ -1,0 +1,25 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "fct_listings_deduped",
+  description: "Deduped fact table - one row per listing, latest snapshot only. Use for counting unique active listings without double-counting across scrapes.",
+  bigquery: {
+    partitionBy: "scraped_date",
+    clusterBy: ["pf_world_key", "duty_key", "scraped_date"]
+  },
+  assertions: {
+    nonNull: ["fct_key", "duty_key", "pf_world_key", "listing_id", "scraped_at", "scraped_date"],
+    uniqueKey: ["listing_id"]
+  }
+}
+
+SELECT * EXCEPT(rn)
+FROM (
+  SELECT *,
+    ROW_NUMBER() OVER (
+      PARTITION BY listing_id
+      ORDER BY scraped_at DESC
+    ) AS rn
+  FROM ${ref("fct_listings")}
+)
+WHERE rn = 1

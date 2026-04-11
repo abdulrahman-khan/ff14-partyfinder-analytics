@@ -177,10 +177,10 @@ For Dataform changes push to `main` - Dataform repo in GCP pulls from Git automa
 
 ---
 
-## Dataform transforms
+## Dataform commands
 ```bash
-dataform compile              # validate SQL and ref() resolution - no BQ connection needed
-dataform run                  # run incremental pipeline
+dataform compile
+dataform run
 dataform run --full-refresh   # rebuild all tables from scratch (use after schema changes)
 ```
 
