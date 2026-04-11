@@ -1,0 +1,70 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_this_week_na_traveller_movement",
+  description: "Current FFXIV reset week traveller movement counts for NA high-end listings. Groups by creator_datacenter -> pf_datacenter.",
+  bigquery: {
+    clusterBy: ["pf_datacenter"]
+  },
+  columns: {
+    travel_movement: "Creator datacenter -> listing datacenter. 'Local' if same datacenter.",
+    creator_datacenter: "Datacenter the creator is from",
+    pf_datacenter: "Datacenter the listing was posted on",
+    listing_count: "Distinct listings for this movement combination",
+    week_start: "Start of the current FFXIV reset week (Tuesday 08:00 UTC)",
+    week_end: "End of the current FFXIV reset week (following Tuesday 08:00 UTC)"
+  }
+}
+
+WITH reset_window AS (
+  SELECT
+    TIMESTAMP_SUB(
+      TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK(TUESDAY)),
+      INTERVAL (CASE
+        WHEN CURRENT_TIMESTAMP() >= TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK(TUESDAY)), INTERVAL 8 HOUR)
+        THEN 0
+        ELSE 7
+      END) * 24 HOUR
+    ) + INTERVAL 8 HOUR                 AS week_start,
+    TIMESTAMP_ADD(
+      TIMESTAMP_SUB(
+        TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK(TUESDAY)),
+        INTERVAL (CASE
+          WHEN CURRENT_TIMESTAMP() >= TIMESTAMP_ADD(TIMESTAMP_TRUNC(CURRENT_TIMESTAMP(), WEEK(TUESDAY)), INTERVAL 8 HOUR)
+          THEN 0
+          ELSE 7
+        END) * 24 HOUR
+      ) + INTERVAL 8 HOUR,
+      INTERVAL 7 DAY
+    )                                   AS week_end
+)
+
+SELECT
+  CASE
+    WHEN f.is_traveller = 0 THEN 'Local'
+    ELSE CONCAT(f.creator_datacenter, ' -> ', f.pf_datacenter)
+  END                                   AS travel_movement,
+  f.creator_datacenter,
+  f.pf_datacenter,
+  COUNT(DISTINCT f.listing_id)          AS listing_count,
+  rw.week_start,
+  rw.week_end
+FROM ${ref("fct_listings_deduped")} f
+LEFT JOIN ${ref("dim_duties")} d
+  ON d.duty_key = f.duty_key
+LEFT JOIN ${ref("dim_worlds")} w
+  ON w.world_key = f.pf_world_key
+CROSS JOIN reset_window rw
+WHERE f.scraped_at >= rw.week_start
+  AND f.scraped_at <  rw.week_end
+  AND w.region = 'NA'
+  AND d.is_high_end = 1
+GROUP BY
+  CASE
+    WHEN f.is_traveller = 0 THEN 'Local'
+    ELSE CONCAT(f.creator_datacenter, ' -> ', f.pf_datacenter)
+  END,
+  f.creator_datacenter,
+  f.pf_datacenter,
+  rw.week_start,
+  rw.week_end

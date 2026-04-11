@@ -1,26 +1,9 @@
 config {
-  type: "table",
+  type: "declaration",
   schema: "silver",
   name: "dim_worlds",
   description: "World reference dimension - one row per world with datacenter and region",
-  bigquery: {
-    clusterBy: ["region", "datacenter"]
-  },
-  assertions: {
-    nonNull: ["world_key", "world", "datacenter", "region"],
-    uniqueKey: ["world_key"]
-  },
-  columns: {
-    world_key: "MD5 surrogate key derived from world name",
-    world: "World name",
-    datacenter: "Datacenter the world belongs to",
-    region: "Region the datacenter belongs to"
-  }
 }
 
-SELECT
-  TO_HEX(MD5(world))              AS world_key,
-  world,
-  datacenter,
-  region
-FROM ${ref("worlds_clean")}
+
+

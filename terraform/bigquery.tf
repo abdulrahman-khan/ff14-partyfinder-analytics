@@ -301,6 +301,8 @@ resource "google_bigquery_dataset_iam_member" "pipeline_silver" {
 
 resource "google_bigquery_dataset_iam_member" "pipeline_gold" {
   dataset_id = google_bigquery_dataset.gold.dataset_id
-  role       "roles/bigquery.dataEditor"
+  role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.pipeline.email}"
 }
+
+

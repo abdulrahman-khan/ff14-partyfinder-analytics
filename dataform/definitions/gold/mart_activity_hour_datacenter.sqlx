@@ -1,7 +1,7 @@
 config {
   type: "incremental",
   schema: "gold",
-  name: "agg_activity_by_hour_datacenter",
+  name: "mart_activity_hour_datacenter",
   uniqueKey: ["hour_start", "datacenter", "is_high_end", "is_cross"],
   description: "Hourly listing activity aggregated by datacenter",
   bigquery: {
@@ -42,13 +42,13 @@ WITH base AS (
     listings.open_tank_slots,
     listings.open_healer_slots,
     listings.open_dps_slots
-  FROM gold.spine_hour_datacenter spine
-  LEFT JOIN gold.dim_worlds world
+  FROM ${ref("spine_hour_datacenter")} spine
+  LEFT JOIN ${ref("dim_worlds")} world
     ON world.datacenter = spine.datacenter
-  LEFT JOIN gold.fct_listings listings
+  LEFT JOIN ${ref("fct_listings")} listings
     ON listings.pf_world_key = world.world_key
     AND TIMESTAMP_TRUNC(listings.scraped_at, HOUR) = spine.hour_start
-  LEFT JOIN gold.dim_duties duty
+  LEFT JOIN ${ref("dim_duties")} duty
     ON duty.duty_key = listings.duty_key
 )
 

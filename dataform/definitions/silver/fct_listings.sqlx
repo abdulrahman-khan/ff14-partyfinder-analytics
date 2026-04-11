@@ -99,9 +99,9 @@ WITH base AS (
     TIME(raw_listings.scraped_at)                                   AS scraped_time
 
   FROM ${ref("raw_listings")} raw_listings
-  LEFT JOIN ${ref("worlds_clean")} w_pf
+  LEFT JOIN ${ref("dim_worlds")} w_pf
     ON LOWER(TRIM(raw_listings.world)) = LOWER(TRIM(w_pf.world))
-  LEFT JOIN ${ref("worlds_clean")} w_creator
+  LEFT JOIN ${ref("dim_worlds")} w_creator
     ON LOWER(TRIM(raw_listings.creator_server)) = LOWER(TRIM(w_creator.world))
 
   WHERE raw_listings.listing_id IS NOT NULL
