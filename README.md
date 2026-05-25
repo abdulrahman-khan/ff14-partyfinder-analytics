@@ -21,31 +21,37 @@ GCS: raw/YYYY/MM/DD/HHMMSS.json
     ├── Cloud Run (loader) → bronze.raw_listings
     ├── wait 120s
     └── Dataform
-            ├── silver.listings_clean    (incremental)
-            ├── gold.dim_worlds          (table)
-            ├── gold.dim_duties          (table)
-            ├── gold.fct_listings        (incremental)
-            ├── gold.duty_stats          (incremental)
-            └── gold.role_demand         (incremental)
+            ├── silver.dim_duties                      (table)
+            ├── silver.dim_worlds                      (stub — manually managed)
+            ├── silver.fct_listings                    (incremental)
+            ├── silver.fct_listings_deduped            (view)
+            ├── gold.spine_hour_datacenter             (table)
+            ├── gold.mart_activity_hour_datacenter     (incremental)
+            ├── gold.mart_this_week_na_by_datacenter   (table)
+            ├── gold.mart_last_week_na_by_datacenter   (table)
+            ├── gold.mart_this_week_na_traveller_movement (table)
+            └── gold.mart_last_week_na_traveller_movement (table)
 ```
 
 
 ### Schema
 
 ```
-dim_worlds          dim_duties
-    ↑                   ↑
-    └──── fct_listings ─┘
-              ↓
-        duty_stats
-        role_demand
+silver.dim_worlds    silver.dim_duties
+        ↑                    ↑
+        └── silver.fct_listings ──┐
+                                  ↓
+                    gold.spine_hour_datacenter
+                            ↓
+              gold.mart_activity_hour_datacenter
+              gold.mart_*_by_datacenter
+              gold.mart_*_traveller_movement
 ```
 
 
 
 
 
-<!--
 ## Getting started
 
 ### 1. Authenticate
@@ -91,15 +97,15 @@ dataform init-creds   # select BigQuery, then ADC
 
 ### 6. Load worlds reference table (one-time)
 ```bash
-bq query --nouse_legacy_sql --project_id=ff14-pf-data "$(Get-Content scripts/load_worlds_clean.sql -Raw)"
+bq query --nouse_legacy_sql --project_id=ff14-pf-data "$(Get-Content scripts/load_dim_worlds.sql -Raw)"
 ```
--->
 
 
 
 ### Manually Run Pipelines / Dataforms
 
 ```bash
+gcloud run jobs execute ff14-pf-scraper --region=us-central1
 
 gcloud run jobs execute ff14-pf-duty-extractor --region=us-central1
 
