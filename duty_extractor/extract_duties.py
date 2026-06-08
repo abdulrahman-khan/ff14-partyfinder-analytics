@@ -71,9 +71,9 @@ def write_duties_to_gcs(bucket, duties: set):
 
 
 def load_duties_to_bq(bq_client):
-    """Load duties CSV from GCS into bronze.duties via load job."""
+    """Load duties CSV from GCS into bronze.raw_duties via load job."""
     uri        = f"gs://{GCS_BUCKET}/{DUTIES_PATH}"
-    table_ref  = f"{BQ_PROJECT}.bronze.duties"
+    table_ref  = f"{BQ_PROJECT}.bronze.raw_duties"
 
     job_config = bigquery.LoadJobConfig(
         source_format     = bigquery.SourceFormat.CSV,

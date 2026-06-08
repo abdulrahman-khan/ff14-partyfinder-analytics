@@ -32,6 +32,7 @@ WITH base AS (
 
     raw_listings.listing_id,
     raw_listings.duty,
+    raw_listings.creator                                            AS creator_name,
     raw_listings.world                                              AS pf_world,
     raw_listings.creator_server                                     AS creator_world,
     raw_listings.source_file,

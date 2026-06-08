@@ -27,13 +27,13 @@ SELECT
   CASE WHEN LOWER(duty) LIKE '%(savage)%'                         THEN 1 ELSE 0 END AS is_savage,
   CASE WHEN LOWER(duty) LIKE '%(ultimate)%'                       THEN 1 ELSE 0 END AS is_ultimate,
   CASE WHEN LOWER(duty) LIKE '%(unreal)%'                         THEN 1 ELSE 0 END AS is_unreal,
-  CASE WHEN LOWER(duty) LIKE "%(the minstrel's ballad:)%"
+  CASE WHEN LOWER(duty) LIKE "the minstrel's ballad:%"
     OR LOWER(duty) LIKE '%(extreme)'                              THEN 1 ELSE 0 END AS is_extreme,
   CASE WHEN (
     LOWER(duty) LIKE '%(savage)%'
     OR LOWER(duty) LIKE '%(ultimate)%'
     OR LOWER(duty) LIKE '%(unreal)%'
-    OR LOWER(duty) LIKE "%(the minstrel's ballad:)%"
+    OR LOWER(duty) LIKE "the minstrel's ballad:%"
     OR LOWER(duty) LIKE '%(extreme)'
   ) THEN 1 ELSE 0 END                                             AS is_high_end
 FROM ${ref("raw_duties")}
