@@ -2,12 +2,12 @@ config {
   type: "table",
   schema: "silver",
   name: "dim_duties",
-  description: "Duty reference dimension - one row per unique duty with difficulty flags",
+  description: "Duty reference dimension - one row per unique duty with difficulty flags and a consolidated content_category. NOTE: classification is LIKE-based against duty names and is not yet validated against real raw_duties values (see improvements.md #1); is_high_end feeds every content filter downstream.",
   bigquery: {
     clusterBy: ["is_savage", "is_ultimate"]
   },
   assertions: {
-    nonNull: ["duty_key", "duty"],
+    nonNull: ["duty_key", "duty", "content_category"],
     uniqueKey: ["duty_key"]
   },
   columns: {
@@ -17,7 +17,8 @@ config {
     is_ultimate: "1 if Ultimate difficulty",
     is_unreal: "1 if Unreal difficulty",
     is_extreme: "1 if Extreme difficulty",
-    is_high_end: "1 if any high-end difficulty flag is set"
+    is_high_end: "1 if any high-end difficulty flag is set",
+    content_category: "Consolidated category: savage / ultimate / extreme / unreal / other"
   }
 }
 
@@ -35,5 +36,13 @@ SELECT
     OR LOWER(duty) LIKE '%(unreal)%'
     OR LOWER(duty) LIKE "the minstrel's ballad:%"
     OR LOWER(duty) LIKE '%(extreme)'
-  ) THEN 1 ELSE 0 END                                             AS is_high_end
+  ) THEN 1 ELSE 0 END                                             AS is_high_end,
+  CASE
+    WHEN LOWER(duty) LIKE '%(savage)%'                            THEN 'savage'
+    WHEN LOWER(duty) LIKE '%(ultimate)%'                          THEN 'ultimate'
+    WHEN LOWER(duty) LIKE '%(unreal)%'                            THEN 'unreal'
+    WHEN LOWER(duty) LIKE "the minstrel's ballad:%"
+      OR LOWER(duty) LIKE '%(extreme)'                           THEN 'extreme'
+    ELSE 'other'
+  END                                                             AS content_category
 FROM ${ref("raw_duties")}

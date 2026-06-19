@@ -1,0 +1,63 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_content_trends",
+  description: "Week-over-week content popularity by duty x region x FFXIV reset week. Replaces mart_this/last_week_na_by_datacenter with an all-region, windowed trend: raw listing volume is the input, but the insight is wow_pct_change and in-region weekly rank. Reset week is anchored on Tuesday 08:00 UTC via dim_date. Maps to ranked bars / trend lines.",
+  bigquery: {
+    clusterBy: ["pf_region", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "duty", "reset_week"],
+    rowConditions: [
+      "listings > 0",
+      "listings_prev_week IS NULL OR listings_prev_week >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    duty: "Duty name",
+    content_category: "savage / ultimate / extreme / unreal / other",
+    is_high_end: "1 if high-end content",
+    reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
+    listings: "Listing sessions for this duty/region/week",
+    listings_prev_week: "Same metric one reset week earlier (LAG)",
+    wow_delta: "listings - listings_prev_week",
+    wow_pct_change: "Percent change vs previous week",
+    rank_in_region_week: "Rank of this duty by listings within its region and week (1 = most listed)"
+  }
+}
+
+WITH weekly AS (
+  SELECT
+    l.pf_region,
+    d.duty,
+    l.content_category,
+    l.is_high_end,
+    dd.ffxiv_reset_week_start AS reset_week,
+    COUNT(*)                  AS listings
+  FROM ${ref("fct_listing_lifecycle")} l
+  JOIN ${ref("dim_date")}    dd ON dd.date = l.first_seen_date
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+  WHERE l.pf_region IS NOT NULL
+  GROUP BY 1, 2, 3, 4, 5
+),
+
+with_prev AS (
+  SELECT
+    *,
+    LAG(listings) OVER (PARTITION BY pf_region, duty ORDER BY reset_week) AS listings_prev_week
+  FROM weekly
+)
+
+SELECT
+  pf_region,
+  duty,
+  content_category,
+  is_high_end,
+  reset_week,
+  listings,
+  listings_prev_week,
+  listings - listings_prev_week                                              AS wow_delta,
+  ROUND(SAFE_DIVIDE(listings - listings_prev_week, listings_prev_week) * 100, 1) AS wow_pct_change,
+  RANK() OVER (PARTITION BY pf_region, reset_week ORDER BY listings DESC)     AS rank_in_region_week
+FROM with_prev

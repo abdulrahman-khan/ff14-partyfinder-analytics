@@ -1,7 +1,7 @@
 # NOTE: Build and push your image before running terraform apply:
 #
 #   gcloud auth configure-docker us-central1-docker.pkg.dev
-#   docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/scraper:latest ./scraper
+#   docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/scraper:latest services/scraper
 #   docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/scraper:latest
 
 locals {

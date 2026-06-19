@@ -5,7 +5,7 @@ Queries bronze for unique duty names, appends new ones to duties.csv in GCS,
 then loads the updated file into bronze.duties in BigQuery.
 Only writes to GCS and BQ if new duties are found.
 
-docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest ./duty_extractor
+docker build -t us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest services/duty_extractor
 docker push us-central1-docker.pkg.dev/ff14-pf-data/ff14-pf-scraper/duty-extractor:latest
 gcloud run jobs execute ff14-pf-duty-extractor --region=us-central1
 """

@@ -1,0 +1,42 @@
+config {
+  type: "table",
+  schema: "silver",
+  name: "dim_date",
+  description: "Calendar date dimension with FFXIV weekly-reset attributes. Spans the observed data range (+30 day buffer). Reset week is anchored to Tuesday 08:00 UTC; each calendar day is assigned to the reset week containing its noon, so the Tuesday day maps to the week that opens that morning.",
+  assertions: {
+    nonNull: ["date", "ffxiv_reset_week_start"],
+    uniqueKey: ["date"]
+  },
+  columns: {
+    date: "Calendar date (DATE)",
+    year: "Calendar year",
+    month: "Month 1-12",
+    day: "Day of month 1-31",
+    day_of_week: "1=Sunday .. 7=Saturday (BigQuery DAYOFWEEK)",
+    day_name: "Full weekday name, e.g. Tuesday",
+    is_weekend: "TRUE for Saturday/Sunday",
+    iso_week: "ISO 8601 week number",
+    iso_year: "ISO 8601 year",
+    ffxiv_reset_week_start: "DATE of the Tuesday that opens the FFXIV reset week this date belongs to"
+  }
+}
+
+WITH bounds AS (
+  SELECT
+    MIN(scraped_date)                            AS min_date,
+    DATE_ADD(MAX(scraped_date), INTERVAL 30 DAY) AS max_date
+  FROM ${ref("fct_listings")}
+)
+
+SELECT
+  d                                                            AS date,
+  EXTRACT(YEAR    FROM d)                                      AS year,
+  EXTRACT(MONTH   FROM d)                                      AS month,
+  EXTRACT(DAY     FROM d)                                      AS day,
+  EXTRACT(DAYOFWEEK FROM d)                                    AS day_of_week,
+  FORMAT_DATE('%A', d)                                         AS day_name,
+  EXTRACT(DAYOFWEEK FROM d) IN (1, 7)                          AS is_weekend,
+  EXTRACT(ISOWEEK FROM d)                                      AS iso_week,
+  EXTRACT(ISOYEAR FROM d)                                      AS iso_year,
+  DATE(${ffxiv.resetWeekStart("TIMESTAMP_ADD(TIMESTAMP(d), INTERVAL 12 HOUR)")}) AS ffxiv_reset_week_start
+FROM bounds, UNNEST(GENERATE_DATE_ARRAY(bounds.min_date, bounds.max_date)) AS d

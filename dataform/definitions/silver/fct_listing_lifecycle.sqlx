@@ -1,0 +1,153 @@
+config {
+  type: "incremental",
+  schema: "silver",
+  name: "fct_listing_lifecycle",
+  uniqueKey: ["listing_id", "session_start"],
+  description: "Accumulating-snapshot fact: ONE ROW PER LISTING SESSION. The 15-min snapshot stream in fct_listings is sessionized via gap-and-islands (a gap > 30 min starts a new session, so an identical re-post weeks later is its own row). Derives lifetime, time-to-fill, fill outcome, and role bottleneck. CAVEATS: time-to-fill resolution is +/-15 min (scrape cadence); a mid-life description edit changes listing_id so sessionization handles re-posts but not edits; single-snapshot 'flash' sessions are right-censored (instant-fill vs instant-expire are indistinguishable); 'filled' means the last observed state reached slots_total.",
+  bigquery: {
+    partitionBy: "first_seen_date",
+    clusterBy: ["duty_key", "pf_world_key"],
+    updatePartitionFilter: "first_seen_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 4 DAY)"
+  },
+  assertions: {
+    nonNull: ["lifecycle_key", "listing_id", "session_start", "first_seen_date", "duty_key", "pf_world_key", "last_seen"],
+    uniqueKey: ["lifecycle_key"],
+    rowConditions: [
+      "observed_lifetime_min >= 0",
+      "n_snapshots >= 1",
+      "time_to_full_min IS NULL OR time_to_full_min >= 0",
+      "max_slots_filled IS NULL OR slots_total IS NULL OR max_slots_filled <= slots_total",
+      "fill_rate_pct IS NULL OR fill_rate_pct BETWEEN 0 AND 100"
+    ]
+  }
+}
+
+WITH snapshots AS (
+  SELECT
+    listing_id, scraped_at, duty_key, pf_world_key, creator_world_key,
+    pf_datacenter, pf_region, creator_datacenter, creator_region,
+    is_cross, is_traveller, is_voyager,
+    min_ilvl, slots_filled, slots_total,
+    open_tank_slots, open_healer_slots, open_dps_slots
+  FROM ${ref("fct_listings")}
+  WHERE listing_id IS NOT NULL
+    ${ when(incremental(),
+        `AND scraped_at >= TIMESTAMP_SUB(CURRENT_TIMESTAMP(), INTERVAL 3 DAY)`) }
+),
+
+-- gap-and-islands: flag a new session when the gap from the prior scrape exceeds SESSION_GAP_MIN
+flagged AS (
+  SELECT *,
+    IF(
+      TIMESTAMP_DIFF(
+        scraped_at,
+        LAG(scraped_at) OVER (PARTITION BY listing_id ORDER BY scraped_at),
+        MINUTE
+      ) > ${ffxiv.SESSION_GAP_MIN},
+      1, 0
+    ) AS is_new_session
+  FROM snapshots
+),
+
+-- running sum of the flag = session group; session_start = first scrape of that group
+sessioned AS (
+  SELECT *,
+    MIN(scraped_at) OVER (PARTITION BY listing_id, session_grp) AS session_start
+  FROM (
+    SELECT *,
+      SUM(is_new_session) OVER (
+        PARTITION BY listing_id ORDER BY scraped_at
+        ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW
+      ) AS session_grp
+    FROM flagged
+  )
+),
+
+agg AS (
+  SELECT
+    listing_id,
+    session_start,
+    DATE(session_start)                                          AS first_seen_date,
+    MAX(scraped_at)                                              AS last_seen,
+    TIMESTAMP_DIFF(MAX(scraped_at), session_start, MINUTE)       AS observed_lifetime_min,
+    COUNT(*)                                                     AS n_snapshots,
+
+    ANY_VALUE(duty_key)          AS duty_key,
+    ANY_VALUE(pf_world_key)      AS pf_world_key,
+    ANY_VALUE(creator_world_key) AS creator_world_key,
+    ANY_VALUE(pf_datacenter)      AS pf_datacenter,
+    ANY_VALUE(pf_region)          AS pf_region,
+    ANY_VALUE(creator_datacenter) AS creator_datacenter,
+    ANY_VALUE(creator_region)     AS creator_region,
+    MAX(is_cross)                AS is_cross,
+    MAX(is_traveller)            AS is_traveller,
+    MAX(is_voyager)              AS is_voyager,
+    MAX(min_ilvl)                AS min_ilvl,
+
+    MAX(slots_total)             AS slots_total,
+    MAX(IF(scraped_at = session_start, slots_filled, NULL))     AS initial_slots_filled,
+    MAX(slots_filled)            AS max_slots_filled,
+    MAX(IF(slots_filled >= slots_total, 1, 0))                  AS reached_full,
+    TIMESTAMP_DIFF(
+      MIN(IF(slots_filled >= slots_total, scraped_at, NULL)),
+      session_start, MINUTE
+    )                            AS time_to_full_min,
+
+    AVG(open_tank_slots)         AS avg_open_tank,
+    AVG(open_healer_slots)       AS avg_open_healer,
+    AVG(open_dps_slots)          AS avg_open_dps
+  FROM sessioned
+  GROUP BY listing_id, session_start
+)
+
+SELECT
+  TO_HEX(MD5(CONCAT(agg.listing_id, '|', CAST(agg.session_start AS STRING)))) AS lifecycle_key,
+  agg.listing_id,
+  agg.session_start,
+  agg.first_seen_date,
+  agg.last_seen,
+  agg.observed_lifetime_min,
+  agg.n_snapshots,
+
+  agg.duty_key,
+  COALESCE(d.is_high_end, 0)                       AS is_high_end,
+  COALESCE(d.content_category, 'other')            AS content_category,
+  agg.pf_world_key,
+  agg.creator_world_key,
+  agg.pf_datacenter,
+  agg.pf_region,
+  agg.creator_datacenter,
+  agg.creator_region,
+  agg.is_cross,
+  agg.is_traveller,
+  agg.is_voyager,
+  agg.min_ilvl,
+
+  agg.slots_total,
+  agg.initial_slots_filled,
+  agg.max_slots_filled,
+  agg.reached_full,
+  agg.time_to_full_min,
+  SAFE_DIVIDE(agg.max_slots_filled, agg.slots_total) * 100      AS fill_rate_pct,
+
+  agg.avg_open_tank,
+  agg.avg_open_healer,
+  agg.avg_open_dps,
+  CASE
+    WHEN agg.avg_open_tank   >= agg.avg_open_healer
+     AND agg.avg_open_tank   >= agg.avg_open_dps
+     AND agg.avg_open_tank   > 0 THEN 'tank'
+    WHEN agg.avg_open_healer >= agg.avg_open_dps
+     AND agg.avg_open_healer > 0 THEN 'healer'
+    WHEN agg.avg_open_dps    > 0 THEN 'dps'
+    ELSE 'none'
+  END                                              AS bottleneck_role,
+
+  CASE WHEN agg.reached_full = 0 OR agg.n_snapshots = 1 THEN 1 ELSE 0 END AS is_right_censored,
+  CASE
+    WHEN agg.n_snapshots = 1   THEN 'flash'
+    WHEN agg.reached_full = 1  THEN 'filled'
+    ELSE 'expired_partial'
+  END                                              AS outcome
+FROM agg
+LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = agg.duty_key

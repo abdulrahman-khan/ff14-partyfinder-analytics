@@ -1,5 +1,5 @@
 # upload csv to GCS 
-# gsutil cp data/worlds.csv gs://ff14-pf-data-raw/worlds_data/worlds.csv
+# gsutil cp reference/worlds.csv gs://ff14-pf-data-raw/worlds_data/worlds.csv
 
 # external table in BigQuery points directly to GCS, so no need to run jobs
 

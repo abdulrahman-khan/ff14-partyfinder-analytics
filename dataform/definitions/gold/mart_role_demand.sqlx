@@ -1,0 +1,76 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_role_demand",
+  description: "Role bottleneck analysis by content_category x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck', and the bottleneck-role counts answer 'which role is hardest to fill'. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart.",
+  bigquery: {
+    clusterBy: ["pf_region", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "content_category", "post_hour"],
+    rowConditions: [
+      "sessions > 0",
+      "open_tank_share_pct  IS NULL OR open_tank_share_pct  BETWEEN 0 AND 100",
+      "open_healer_share_pct IS NULL OR open_healer_share_pct BETWEEN 0 AND 100",
+      "open_dps_share_pct   IS NULL OR open_dps_share_pct   BETWEEN 0 AND 100"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    content_category: "savage / ultimate / extreme / unreal / other",
+    is_high_end: "1 if high-end content",
+    post_hour: "Hour of day (UTC) the listing was posted (0-23)",
+    sessions: "Listing sessions in this bucket",
+    avg_open_tank: "Mean open tank slots per session",
+    avg_open_healer: "Mean open healer slots per session",
+    avg_open_dps: "Mean open DPS slots per session",
+    open_tank_share_pct: "Tank share of all open slots in this bucket",
+    open_healer_share_pct: "Healer share of all open slots",
+    open_dps_share_pct: "DPS share of all open slots",
+    bottleneck_tank: "Sessions where tank was the bottleneck role",
+    bottleneck_healer: "Sessions where healer was the bottleneck role",
+    bottleneck_dps: "Sessions where DPS was the bottleneck role",
+    most_common_bottleneck: "Modal bottleneck role for the bucket"
+  }
+}
+
+WITH base AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    content_category,
+    is_high_end,
+    EXTRACT(HOUR FROM session_start) AS post_hour,
+    avg_open_tank,
+    avg_open_healer,
+    avg_open_dps,
+    bottleneck_role
+  FROM ${ref("fct_listing_lifecycle")}
+  WHERE pf_region IS NOT NULL
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  is_high_end,
+  post_hour,
+  COUNT(*)                                                                      AS sessions,
+  ROUND(AVG(avg_open_tank),   2)                                                AS avg_open_tank,
+  ROUND(AVG(avg_open_healer), 2)                                                AS avg_open_healer,
+  ROUND(AVG(avg_open_dps),    2)                                                AS avg_open_dps,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_tank),   SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_tank_share_pct,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_healer), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_healer_share_pct,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_dps),    SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_dps_share_pct,
+  COUNTIF(bottleneck_role = 'tank')                                             AS bottleneck_tank,
+  COUNTIF(bottleneck_role = 'healer')                                           AS bottleneck_healer,
+  COUNTIF(bottleneck_role = 'dps')                                              AS bottleneck_dps,
+  CASE
+    WHEN COUNTIF(bottleneck_role = 'tank')   >= COUNTIF(bottleneck_role = 'healer')
+     AND COUNTIF(bottleneck_role = 'tank')   >= COUNTIF(bottleneck_role = 'dps')  THEN 'tank'
+    WHEN COUNTIF(bottleneck_role = 'healer') >= COUNTIF(bottleneck_role = 'dps')  THEN 'healer'
+    ELSE 'dps'
+  END                                                                          AS most_common_bottleneck
+FROM base
+GROUP BY 1, 2, 3, 4, 5

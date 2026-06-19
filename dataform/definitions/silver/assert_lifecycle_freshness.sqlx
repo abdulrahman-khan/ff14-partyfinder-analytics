@@ -1,0 +1,12 @@
+config {
+  type: "assertion",
+  schema: "silver",
+  name: "assert_lifecycle_freshness",
+  description: "Fails if the newest session in fct_listing_lifecycle is more than 3 hours old. Catches a pipeline that is running but producing no fresh data (e.g. loader completes but inserts 0 rows, or the scraper silently parses zero listings)."
+}
+
+SELECT
+  MAX(last_seen)      AS max_last_seen,
+  CURRENT_TIMESTAMP() AS checked_at
+FROM ${ref("fct_listing_lifecycle")}
+HAVING TIMESTAMP_DIFF(CURRENT_TIMESTAMP(), MAX(last_seen), HOUR) > 3

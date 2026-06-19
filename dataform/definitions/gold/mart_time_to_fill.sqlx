@@ -1,0 +1,76 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_time_to_fill",
+  description: "HERO MART. Time-to-fill and fill rate by duty x region x datacenter x weekday x hour-of-day, bucketed on when the listing was POSTED (session_start). Sourced from fct_listing_lifecycle. Percentiles are computed only over sessions that reached full; fill_rate_pct is over non-flash sessions (n_snapshots > 1) so instant-appear/disappear noise is excluded. Maps to a weekday x hour heatmap.",
+  bigquery: {
+    clusterBy: ["pf_region", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "duty", "post_weekday", "post_hour"],
+    rowConditions: [
+      "sessions > 0",
+      "fill_rate_pct IS NULL OR fill_rate_pct BETWEEN 0 AND 100",
+      "median_time_to_fill_min IS NULL OR median_time_to_fill_min >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    duty: "Duty name",
+    content_category: "savage / ultimate / extreme / unreal / other",
+    is_high_end: "1 if high-end content",
+    post_weekday: "Day the listing was posted: 1=Sunday .. 7=Saturday",
+    day_name: "Weekday label, e.g. Tuesday",
+    is_weekend: "TRUE if posted on Sat/Sun",
+    post_hour: "Hour of day (UTC) the listing was posted (0-23)",
+    sessions: "Listing sessions posted in this bucket",
+    sessions_observed: "Sessions seen in >1 scrape (excludes single-snapshot 'flash' sessions)",
+    sessions_filled: "Sessions that reached full",
+    fill_rate_pct: "sessions_filled / sessions_observed * 100",
+    median_time_to_fill_min: "Median minutes from post to full, over filled sessions (APPROX p50)",
+    p90_time_to_fill_min: "90th percentile minutes to full, over filled sessions",
+    avg_time_to_fill_min: "Mean minutes to full, over filled sessions"
+  }
+}
+
+WITH base AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    l.duty_key,
+    d.duty,
+    l.content_category,
+    l.is_high_end,
+    EXTRACT(DAYOFWEEK FROM l.session_start)            AS post_weekday,
+    dd.day_name,
+    dd.is_weekend,
+    EXTRACT(HOUR FROM l.session_start)                 AS post_hour,
+    l.reached_full,
+    l.n_snapshots,
+    IF(l.reached_full = 1, l.time_to_full_min, NULL)   AS ttf
+  FROM ${ref("fct_listing_lifecycle")} l
+  LEFT JOIN ${ref("dim_duties")} d  ON d.duty_key = l.duty_key
+  LEFT JOIN ${ref("dim_date")}   dd ON dd.date = l.first_seen_date
+  WHERE l.pf_region IS NOT NULL
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  duty,
+  content_category,
+  is_high_end,
+  post_weekday,
+  day_name,
+  is_weekend,
+  post_hour,
+  COUNT(*)                                                                  AS sessions,
+  COUNTIF(n_snapshots > 1)                                                  AS sessions_observed,
+  COUNTIF(reached_full = 1)                                                 AS sessions_filled,
+  ROUND(SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(n_snapshots > 1)) * 100, 1) AS fill_rate_pct,
+  APPROX_QUANTILES(ttf, 100)[OFFSET(50)]                                    AS median_time_to_fill_min,
+  APPROX_QUANTILES(ttf, 100)[OFFSET(90)]                                    AS p90_time_to_fill_min,
+  ROUND(AVG(ttf), 1)                                                        AS avg_time_to_fill_min
+FROM base
+GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9

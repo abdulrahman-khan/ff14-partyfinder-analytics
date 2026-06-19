@@ -1,0 +1,69 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_traveller_flow",
+  description: "Data-center travel balance: per region x datacenter, how many listings are posted by visitors from other DCs (inbound) vs by residents posting elsewhere (outbound), and the signed net flow. Replaces mart_this/last_week_na_traveller_movement. Scoped to intra-region DC travel (creator_region = pf_region), which is how FFXIV data-center travel works; cross-region (voyager) rows are excluded as noise. Sourced from fct_listing_lifecycle (one row per session, no scrape double-count). Within a region, net_flow sums to ~0. Maps to a diverging bar / sankey.",
+  bigquery: {
+    clusterBy: ["region"]
+  },
+  assertions: {
+    nonNull: ["region", "datacenter"],
+    rowConditions: [
+      "inbound >= 0",
+      "outbound >= 0",
+      "local_listings >= 0",
+      "net_flow = inbound - outbound"
+    ]
+  },
+  columns: {
+    region: "Region",
+    datacenter: "Datacenter",
+    inbound: "Listings posted ON this DC by creators from another DC (visitors)",
+    outbound: "Listings posted by THIS DC's residents on another DC",
+    local_listings: "Listings where creator DC = host DC",
+    net_flow: "inbound - outbound (positive = net importer of party finders)"
+  }
+}
+
+WITH s AS (
+  SELECT
+    pf_region AS region,
+    pf_datacenter,
+    creator_datacenter,
+    IF(pf_datacenter = creator_datacenter, 1, 0) AS is_local
+  FROM ${ref("fct_listing_lifecycle")}
+  WHERE pf_region IS NOT NULL
+    AND pf_datacenter IS NOT NULL
+    AND creator_datacenter IS NOT NULL
+    AND pf_region = creator_region        -- intra-region DC travel only
+),
+
+host AS (
+  SELECT
+    region,
+    pf_datacenter           AS datacenter,
+    COUNTIF(is_local = 0)   AS inbound,
+    COUNTIF(is_local = 1)   AS local_listings
+  FROM s
+  GROUP BY 1, 2
+),
+
+origin AS (
+  SELECT
+    region,
+    creator_datacenter      AS datacenter,
+    COUNTIF(is_local = 0)   AS outbound
+  FROM s
+  GROUP BY 1, 2
+)
+
+SELECT
+  COALESCE(h.region, o.region)         AS region,
+  COALESCE(h.datacenter, o.datacenter) AS datacenter,
+  COALESCE(h.inbound, 0)               AS inbound,
+  COALESCE(o.outbound, 0)              AS outbound,
+  COALESCE(h.local_listings, 0)        AS local_listings,
+  COALESCE(h.inbound, 0) - COALESCE(o.outbound, 0) AS net_flow
+FROM host h
+FULL OUTER JOIN origin o
+  ON h.region = o.region AND h.datacenter = o.datacenter

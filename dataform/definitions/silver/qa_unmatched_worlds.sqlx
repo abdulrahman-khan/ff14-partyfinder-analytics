@@ -1,0 +1,17 @@
+config {
+  type: "view",
+  schema: "silver",
+  name: "qa_unmatched_worlds",
+  description: "MONITORING (non-blocking). Worlds present in raw_listings that do NOT match dim_worlds on LOWER(TRIM(world)). Any match failure NULLs pf_world_key/creator_world_key and silently drops the listing from region/datacenter rollups in gold. A consistently non-empty result means dim_worlds needs a new world or a world_aliases mapping (improvements.md #6). Kept as a view, not an assertion, so it never blocks the pipeline."
+}
+
+SELECT
+  r.world,
+  COUNT(*) AS listings
+FROM ${ref("raw_listings")} r
+LEFT JOIN ${ref("dim_worlds")} w
+  ON LOWER(TRIM(r.world)) = LOWER(TRIM(w.world))
+WHERE r.world IS NOT NULL
+  AND w.world IS NULL
+GROUP BY r.world
+ORDER BY listings DESC

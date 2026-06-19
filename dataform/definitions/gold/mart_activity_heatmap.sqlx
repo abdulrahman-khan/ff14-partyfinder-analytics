@@ -1,0 +1,44 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_activity_heatmap",
+  description: "Party Finder posting activity by region x datacenter x weekday x hour-of-day (UTC), bucketed on when listings were posted. Answers 'when is PF busiest on my DC'. Sourced from fct_listing_lifecycle (one row per session), so it counts listings posted rather than raw scrape snapshots. Replaces mart_activity_hour_datacenter. Maps to a weekday x hour heatmap.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "post_weekday", "post_hour"],
+    rowConditions: [
+      "listings_posted > 0",
+      "fill_rate_pct IS NULL OR fill_rate_pct BETWEEN 0 AND 100",
+      "avg_lifetime_min IS NULL OR avg_lifetime_min >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    post_weekday: "Day posted: 1=Sunday .. 7=Saturday",
+    day_name: "Weekday label, e.g. Tuesday",
+    is_weekend: "TRUE if posted on Sat/Sun",
+    post_hour: "Hour of day (UTC) the listing was posted (0-23)",
+    listings_posted: "Listing sessions posted in this bucket",
+    avg_lifetime_min: "Mean observed lifetime (minutes) of those sessions",
+    fill_rate_pct: "Share of non-flash sessions that reached full"
+  }
+}
+
+SELECT
+  l.pf_region,
+  l.pf_datacenter,
+  EXTRACT(DAYOFWEEK FROM l.session_start)                                          AS post_weekday,
+  dd.day_name,
+  dd.is_weekend,
+  EXTRACT(HOUR FROM l.session_start)                                               AS post_hour,
+  COUNT(*)                                                                         AS listings_posted,
+  ROUND(AVG(l.observed_lifetime_min), 1)                                           AS avg_lifetime_min,
+  ROUND(SAFE_DIVIDE(COUNTIF(l.reached_full = 1), COUNTIF(l.n_snapshots > 1)) * 100, 1) AS fill_rate_pct
+FROM ${ref("fct_listing_lifecycle")} l
+LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+WHERE l.pf_region IS NOT NULL
+  AND l.pf_datacenter IS NOT NULL
+GROUP BY 1, 2, 3, 4, 5, 6
