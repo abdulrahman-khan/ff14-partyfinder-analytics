@@ -19,3 +19,14 @@ variable "dataform_git_token" {
   type        = string
   sensitive   = true
 }
+
+variable "billing_account" {
+  description = "Cloud Billing account ID (format XXXXXX-XXXXXX-XXXXXX). Find via: gcloud billing accounts list"
+  type        = string
+}
+
+variable "alert_email" {
+  description = "Email address for budget and pipeline failure alerts"
+  type        = string
+  default     = "ak47thefirelord@gmail.com"
+}
