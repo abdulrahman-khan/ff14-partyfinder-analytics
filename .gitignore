@@ -20,7 +20,6 @@ venv/
 *.tfstate.*
 crash.log
 terraform/.terraform/
-terraform/.terraform.lock.hcl
 terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfvars
@@ -34,8 +33,7 @@ dataform/.df-credentials.json
 *.tfvars
 *.tfvars.json
 
-# Lock file (optional: keep if working in team)
-# .terraform.lock.hcl
+# Note: terraform/.terraform.lock.hcl is intentionally committed (pins provider versions)
 
 
 # docker
@@ -57,5 +55,3 @@ tools/xivpf.db
 
 CLAUDE.md
 .claude
-
-.gitignore

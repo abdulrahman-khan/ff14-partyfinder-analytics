@@ -1,91 +1,71 @@
 # FFXIV Party Finder Data Warehouse
 
-End-to-end GCP data pipeline that scrapes live Party Finder listings from
-[xivpf.com](https://xivpf.com) every 15 minutes, lands them in BigQuery via a medallion
-architecture (bronze → silver → gold), and runs hourly SQL transforms with Dataform. All
-infrastructure is managed with Terraform.
+An end-to-end GCP data pipeline that scrapes live Party Finder listings from
+[xivpf.com](https://xivpf.com) every 15 minutes and turns them into chart-ready analytics.
+Raw HTML lands in BigQuery through a medallion architecture (bronze → silver → gold), hourly
+SQL transforms run in Dataform, and all infrastructure is managed with Terraform.
 
-**GCP project:** `ff14-pf-data` · **Region:** `us-central1`
-
-## Documentation
-
-- [docs/architecture.md](docs/architecture.md) — repo layout, data flow, medallion schema, design decisions
-- [docs/gold_marts.md](docs/gold_marts.md) — gold marts catalog + the lifecycle model
-- [docs/observability.md](docs/observability.md) — logging & failure-alerting runbook
-- [docs/improvements.md](docs/improvements.md) — backlog / improvement opportunities
-
-## Pipeline overview
+## Project structure
 
 ```
-xivpf.com
-    ↓ every 15 min — Cloud Run (scraper)
-GCS: raw/YYYY/MM/DD/HHMMSS.json
-    ↓ every hour at :05 — Cloud Workflows
-    ├── Cloud Run (duty-extractor) → bronze.duties
-    ├── wait 30s
-    ├── Cloud Run (loader) → bronze.raw_listings
-    ├── wait 150s
-    └── Dataform → silver.* → gold.*
+ff14-pf/
+├── services/       # Python Cloud Run jobs — scraper, loader, duty_extractor
+├── dataform/       # SQL transforms — definitions/{bronze,silver,gold}/ + includes/
+├── terraform/      # all infrastructure (Cloud Run, Workflows, BigQuery, scheduling, alerting)
+├── reference/      # static reference data + loaders (worlds → datacenter → region)
+├── tools/          # one-off utilities (historical backfill)
+└── docs/           # architecture, gold marts, observability, backlog
 ```
+
+## Data marts
+
+| Mart | Question it answers |
+|---|---|
+| `mart_time_to_fill` ⭐ | When should I post to fill my party fastest? (median/p90 time-to-fill + fill rate by duty × region × DC × weekday × hour) |
+| `mart_role_demand` | Which role is the bottleneck right now? (open tank/healer/DPS share + most common bottleneck) |
+| `mart_activity_heatmap` | When is Party Finder busiest on my data center? (postings by region × DC × weekday × hour) |
+| `mart_content_trends` | What content is hot or fading? (week-over-week volume change + weekly rank per duty) |
+| `mart_traveller_flow` | Which data centers import vs. export players? (inbound / outbound / net travel flow) |
+
+All marts hang off a single keystone in silver, `fct_listing_lifecycle` — one row per listing
+*session*, carrying its lifetime, time-to-fill, fill outcome, and role bottleneck. See
+[docs/gold_marts.md](docs/gold_marts.md) for grains, metrics, and the lifecycle model.
+
+## Analytics this enables
+
+- **Optimal posting times** — time-to-fill and fill-rate heatmaps across weekday × hour, so a
+  player knows the best window to post a given duty on their DC.
+- **Role scarcity analysis** — which role (tank/healer/DPS) is the chronic bottleneck, by
+  content type, region, and time of day.
+- **Content lifecycle & trends** — week-over-week popularity shifts and per-region rankings
+  that surface what's rising, peaking, or dying off (e.g. new raid tiers vs. old content).
+- **Data-center travel flows** — net player migration between data centers, revealing which
+  DCs pull players in and which leak them out.
+- **Peak-activity profiling** — when each region/DC is most active, useful for capacity and
+  community insights.
+- **ML foundation** — the sessionized lifecycle fact plus traveller/voyager features set up
+  future fill-time regression and party-composition clustering.
 
 ## Getting started
 
-### 1. Authenticate
-```bash
-gcloud auth login
-gcloud config set project ff14-pf-data
-gcloud auth application-default login
-```
+Full setup (API enablement, Dataform credentials, one-time reference load) is in
+[docs/architecture.md](docs/architecture.md). The short version, once authenticated:
 
-### 2. Enable GCP APIs
-```bash
-gcloud services enable run.googleapis.com cloudscheduler.googleapis.com storage.googleapis.com \
-  bigquery.googleapis.com artifactregistry.googleapis.com workflows.googleapis.com \
-  dataform.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com
-```
-
-### 3. Configure Terraform
-Create `terraform/terraform.tfvars` (gitignored):
-```hcl
-project_id         = "ff14-pf-data"
-region             = "us-central1"
-dataform_git_url   = "https://github.com/yourname/ff14-pf.git"
-dataform_git_token = "ghp_xxxxxxxxxxxx"
-```
-
-### 4. Build, push, and deploy
 ```bash
 make docker-auth          # one-time Artifact Registry login
 make build-all push-all   # build + push the three service images
 make deploy               # terraform apply
+make help                 # list all build / run / deploy targets
 ```
 
-### 5. Set up Dataform credentials
-```bash
-cd dataform && dataform init-creds   # select BigQuery, then ADC
-```
+## Documentation
 
-### 6. Load the worlds reference table (one-time)
-See [reference/README.md](reference/README.md). In short:
-```bash
-gsutil cp reference/worlds.csv gs://ff14-pf-data-raw/worlds_data/worlds.csv
-bq query --nouse_legacy_sql --project_id=ff14-pf-data "$(cat reference/load_dim_worlds.sql)"
-```
-
-## Common commands
-
-Run `make help` for the full list.
-
-```bash
-make release-scraper   # rebuild + push + run the scraper (also: release-loader, release-duty)
-make run-loader        # execute a Cloud Run job ad hoc (also: run-scraper, run-duty)
-make dataform-run      # dataform compile && dataform run
-```
-
-For Dataform model changes, push to `main` — the Dataform repo in GCP pulls from Git
-automatically on each pipeline run.
+- [docs/architecture.md](docs/architecture.md) — repo layout, data flow, full schema, design decisions
+- [docs/gold_marts.md](docs/gold_marts.md) — mart catalog + the lifecycle model
+- [docs/observability.md](docs/observability.md) — logging & failure-alerting runbook
+- [docs/improvements.md](docs/improvements.md) — backlog / improvement opportunities
 
 ## Disclaimer
 
-This project scrapes publicly visible data from [xivpf.com](https://xivpf.com). Not
-affiliated with Square Enix.
+This project scrapes publicly visible data from [xivpf.com](https://xivpf.com). Not affiliated
+with Square Enix.
