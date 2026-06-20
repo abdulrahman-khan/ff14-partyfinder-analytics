@@ -4,25 +4,8 @@ resource "google_storage_bucket" "raw" {
   location      = var.region
   force_destroy = false
 
-  lifecycle_rule {
-    condition {
-      age            = 90
-      matches_prefix = ["raw/"]
-    }
-    action {
-      type = "Delete"
-    }
-  }
-
-  lifecycle_rule {
-    condition {
-      age            = 180
-      matches_prefix = ["dead-letter/"]
-    }
-    action {
-      type = "Delete"
-    }
-  }
+  # No lifecycle deletion rules: raw/ is the immutable source of truth for all
+  # scraped data and must never be auto-deleted (see CLAUDE.md hard rule).
 
   uniform_bucket_level_access = true
 
