@@ -56,4 +56,6 @@ deploy:
 	cd terraform && terraform apply
 
 dataform-run:
-	cd dataform && dataform compile && dataform run
+	cd dataform && dataform compile && dataform run 
+dataform-refresh:
+	cd dataform && dataform compile && dataform run --full-refresh

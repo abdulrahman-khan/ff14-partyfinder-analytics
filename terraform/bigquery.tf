@@ -165,7 +165,8 @@ resource "google_bigquery_table" "silver_fct_listings" {
     { name = "creator_world_key",    type = "STRING",    mode = "NULLABLE" },
     { name = "listing_id",           type = "STRING",    mode = "NULLABLE" },
     { name = "duty",                 type = "STRING",    mode = "NULLABLE" },
-    { name = "creator_name",         type = "STRING",    mode = "NULLABLE" },
+    { name = "player_hash",          type = "STRING",    mode = "NULLABLE" },
+    { name = "creator_initials",     type = "STRING",    mode = "NULLABLE" },
     { name = "pf_world",             type = "STRING",    mode = "NULLABLE" },
     { name = "creator_world",        type = "STRING",    mode = "NULLABLE" },
     { name = "source_file",          type = "STRING",    mode = "NULLABLE" },
@@ -221,7 +222,8 @@ resource "google_bigquery_table" "silver_fct_listings_deduped" {
     { name = "creator_world_key",    type = "STRING",    mode = "NULLABLE" },
     { name = "listing_id",           type = "STRING",    mode = "NULLABLE" },
     { name = "duty",                 type = "STRING",    mode = "NULLABLE" },
-    { name = "creator_name",         type = "STRING",    mode = "NULLABLE" },
+    { name = "player_hash",          type = "STRING",    mode = "NULLABLE" },
+    { name = "creator_initials",     type = "STRING",    mode = "NULLABLE" },
     { name = "pf_world",             type = "STRING",    mode = "NULLABLE" },
     { name = "creator_world",        type = "STRING",    mode = "NULLABLE" },
     { name = "source_file",          type = "STRING",    mode = "NULLABLE" },
@@ -305,6 +307,28 @@ resource "google_bigquery_dataset_iam_member" "pipeline_gold" {
   dataset_id = google_bigquery_dataset.gold.dataset_id
   role       = "roles/bigquery.dataEditor"
   member     = "serviceAccount:${google_service_account.pipeline.email}"
+}
+
+# -- Analyst / trusted-dev access ---------------------------------------------
+resource "google_bigquery_dataset_iam_member" "analyst_silver" {
+  count      = var.analyst_group == "" ? 0 : 1
+  dataset_id = google_bigquery_dataset.silver.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "group:${var.analyst_group}"
+}
+
+resource "google_bigquery_dataset_iam_member" "analyst_gold" {
+  count      = var.analyst_group == "" ? 0 : 1
+  dataset_id = google_bigquery_dataset.gold.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "group:${var.analyst_group}"
+}
+
+resource "google_bigquery_dataset_iam_member" "bronze_readers" {
+  count      = var.bronze_reader_group == "" ? 0 : 1
+  dataset_id = google_bigquery_dataset.bronze.dataset_id
+  role       = "roles/bigquery.dataViewer"
+  member     = "group:${var.bronze_reader_group}"
 }
 
 

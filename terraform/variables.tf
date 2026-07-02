@@ -30,3 +30,15 @@ variable "alert_email" {
   type        = string
   default     = "ak47thefirelord@gmail.com"
 }
+
+variable "analyst_group" {
+  description = "Google group granted read (dataViewer) access to silver + gold ONLY"
+  type        = string
+  default     = "abdulkhanyyz@gmail.com"
+}
+
+variable "bronze_reader_group" {
+  description = "Google group of trusted devs granted read (dataViewer) access to the bronze dataset."
+  type        = string
+  default     = "abdulkhanyyz@gmail.com"
+}

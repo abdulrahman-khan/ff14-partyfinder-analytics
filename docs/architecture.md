@@ -61,11 +61,15 @@ Cloud Run: scraper → GCS: gs://ff14-pf-data-raw/raw/YYYY/MM/DD/HHMMSS.json
 - `file_loads` — GCS file-processing tracker; **insert-only** (see design decisions).
 - `duties` — distinct duty names from raw_listings.
 - `raw_worlds` — external table over `reference/worlds.csv` in GCS.
+- `dim_players` — **identity vault**; one row per `player_hash` mapping it to the real
+  character name + home world. The only table where a name is recoverable; bronze-restricted
+  by IAM (see design decisions).
 
 ### Silver (`dataform/definitions/silver/`) — cleaned, keyed, flagged
 - `fct_listings` — **periodic snapshot fact**; one row per listing per scrape. Incremental
   on `scraped_at`, partitioned by `scraped_date`, clustered by
-  `pf_world_key / duty_key / scraped_date`.
+  `pf_world_key / duty_key / scraped_date`. Carries pseudonymous `player_hash` +
+  `creator_initials` only — the real creator name never leaves bronze.
 - `fct_listing_lifecycle` — **accumulating snapshot fact**; one row per listing *session*
   (gap-and-islands sessionized). Derives lifetime, time-to-fill, fill outcome, role
   bottleneck. Incremental merge on `[listing_id, session_start]` with a 3-day lookback. The
@@ -90,8 +94,8 @@ Region is a dimension, never hardcoded. All marts source from `fct_listing_lifec
 - `mart_traveller_flow` — per-DC inbound/outbound/net travel flow.
 
 Full mart catalog, grains, and the lifecycle model are in [`gold_marts.md`](gold_marts.md).
-Shared logic (`resetWeekBounds` / `resetWeekStart` macros, `SESSION_GAP_MIN`) lives in
-`dataform/includes/ffxiv.js`.
+Shared logic (`resetWeekBounds` / `resetWeekStart` macros, `SESSION_GAP_MIN`,
+`playerHash` / `playerInitials`) lives in `dataform/includes/ffxiv.js`.
 
 ---
 
@@ -107,6 +111,16 @@ other models can `ref('dim_worlds')`. Do not recreate it through Dataform.
 
 **Surrogate keys are MD5 hashes** of natural keys (duty name, world name) for dimensional
 consistency across bronze/silver/gold joins.
+
+**Player identity is pseudonymized at the bronze→silver boundary.** `bronze.raw_listings`
+still holds the real creator name (raw capture), but everything downstream carries only
+`player_hash` = `TO_HEX(MD5(lower(creator) | lower(creator_server)))`
+(firstname+lastname+homeserver) and display `creator_initials` (`M. L.`). Only
+`bronze.dim_players` maps a hash back to a name. The boundary is enforced by BigQuery IAM, not
+convention: the `analyst_group` variable grants `dataViewer` on **silver + gold only**, while
+`bronze_reader_group` grants bronze to trusted devs. Hash/initials logic is centralized in
+`ffxiv.playerHash` / `ffxiv.playerInitials`. Caveat: `description_clean` is free text and may
+still contain names a user typed — out of scope here (tracked in `improvements.md`).
 
 **Traveller/voyager flags** (`is_traveller`, `is_voyager`) derive from datacenter/region
 mismatches between `creator_world_key` and `pf_world_key` — intentional features for future

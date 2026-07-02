@@ -34,4 +34,24 @@ function resetWeekBounds(period) {
   throw new Error(`resetWeekBounds: unknown period '${period}' (expected 'current' or 'previous')`);
 }
 
-module.exports = { SESSION_GAP_MIN, resetWeekStart, resetWeekBounds };
+// Pseudonymous player key = MD5(firstname+lastname+homeserver). 
+function playerHash(creatorExpr, serverExpr) {
+  return `
+    CASE WHEN ${creatorExpr} IS NULL THEN NULL
+         ELSE TO_HEX(MD5(CONCAT(
+                LOWER(TRIM(${creatorExpr})), '|',
+                LOWER(TRIM(COALESCE(${serverExpr}, ''))))))
+    END`;
+}
+
+// Character-name initials, e.g. "Monamoe Lockhart" -> "M. L." (single-token names -> "M.").
+// `creatorExpr` is any SQL string expression; returns a SQL STRING expression.
+function playerInitials(creatorExpr) {
+  return `
+    ARRAY_TO_STRING(
+      ARRAY(SELECT UPPER(SUBSTR(p, 1, 1)) || '.'
+            FROM UNNEST(SPLIT(TRIM(${creatorExpr}), ' ')) AS p
+            WHERE p != ''), ' ')`;
+}
+
+module.exports = { SESSION_GAP_MIN, resetWeekStart, resetWeekBounds, playerHash, playerInitials };

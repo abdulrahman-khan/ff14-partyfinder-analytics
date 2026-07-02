@@ -1,0 +1,22 @@
+config {
+  type: "table",
+  schema: "bronze",
+  name: "dim_players",
+  description: "IDENTITY VAULT (bronze-only, restricted). The ONLY table where a real character name can be recovered from a player_hash. player_hash = TO_HEX(MD5(lower(creator) | lower(creator_server))) - i.e. firstname+lastname+homeserver. Silver and gold expose only player_hash + creator_initials; access to this table (via the bronze dataset IAM) is limited to trusted devs. Analysts working in silver/gold cannot join back to a real name.",
+  assertions: {
+    nonNull: ["player_hash"],
+    uniqueKey: ["player_hash"]
+  }
+}
+
+SELECT
+  ${ffxiv.playerHash("creator", "creator_server")}     AS player_hash,
+  ANY_VALUE(creator)                                   AS creator_name,
+  ANY_VALUE(creator_server)                            AS creator_server,
+  ${ffxiv.playerInitials("creator")}                   AS creator_initials,
+  MIN(scraped_at)                                      AS first_seen,
+  MAX(scraped_at)                                      AS last_seen,
+  COUNT(DISTINCT listing_id)                           AS n_listings
+FROM ${ref("raw_listings")}
+WHERE creator IS NOT NULL
+GROUP BY player_hash, creator_initials
