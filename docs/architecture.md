@@ -38,19 +38,25 @@ ff14-pf/
 
 ```
 xivpf.com
-  ↓ Cloud Scheduler (every 15 min)
+  ↓ Cloud Scheduler (every 15 min) — the only scheduled trigger
 Cloud Run: scraper → GCS: gs://ff14-pf-data-raw/raw/YYYY/MM/DD/HHMMSS.json
-  ↓ Cloud Scheduler → Cloud Workflows (hourly at :05)
-  ├─ Cloud Run: duty-extractor → bronze.duties
-  ├─ +30s: Cloud Run: loader → bronze.raw_listings
-  └─ +150s: Dataform → silver.* → gold.*
+  ↓ Cloud Run: loader (run on demand, e.g. `make run-loader`) → bronze.raw_listings
+  ↓ on success the loader triggers Cloud Workflows (blocking, ordered):
+  ├─ Cloud Run: duty-extractor → bronze.raw_duties
+  └─ Cloud Run: dataform-runner (`dataform run`) → silver.* → gold.*
 ```
+
+Only the scraper is scheduled. The loader is run on demand (cost control) and, after a
+successful load, fires the `ff14-pf-pipeline` workflow itself. The workflow uses the
+blocking Cloud Run connector so the duty-extractor finishes before Dataform runs. Dataform
+executes as its own Cloud Run job (`dataform-runner`), not via the GCP Dataform git-compile API.
 
 | Source dir | Cloud Run job | Purpose |
 |---|---|---|
 | `services/scraper/` | `ff14-pf-scraper` | HTML-parse xivpf.com → JSON to GCS |
-| `services/loader/` | `ff14-pf-loader` | GCS JSON → `bronze.raw_listings` |
-| `services/duty_extractor/` | `ff14-pf-duty-extractor` | Extract distinct duties → `bronze.duties` |
+| `services/loader/` | `ff14-pf-loader` | GCS JSON → `bronze.raw_listings`; triggers the pipeline workflow on success |
+| `services/duty_extractor/` | `ff14-pf-duty-extractor` | Extract distinct duties → `bronze.raw_duties` |
+| `dataform/` | `ff14-pf-dataform-runner` | Runs `dataform run` (silver + gold transforms) as a container |
 
 ---
 
@@ -59,7 +65,8 @@ Cloud Run: scraper → GCS: gs://ff14-pf-data-raw/raw/YYYY/MM/DD/HHMMSS.json
 ### Bronze (`dataform/definitions/bronze/`) — raw ingestion, append-only
 - `raw_listings` — partitioned by `scraped_at` (DAY).
 - `file_loads` — GCS file-processing tracker; **insert-only** (see design decisions).
-- `duties` — distinct duty names from raw_listings.
+- `raw_duties` — distinct duty names from raw_listings, each with a `first_seen` date;
+  reconciled entirely in BigQuery by the duty-extractor.
 - `raw_worlds` — external table over `reference/worlds.csv` in GCS.
 - `dim_players` — **identity vault**; one row per `player_hash` mapping it to the real
   character name + home world. The only table where a name is recoverable; bronze-restricted
