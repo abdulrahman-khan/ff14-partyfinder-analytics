@@ -1,9 +1,4 @@
-"""
-SQLite → BigQuery historical backfill
-======================================
-One-time script to load existing SQLite data into bronze.raw_listings.
-Run locally: python backfill.py
-"""
+"""One-off load of the old SQLite scrape history into bronze.raw_listings."""
 
 import sqlite3
 import json
@@ -12,54 +7,48 @@ from datetime import timezone, datetime
 
 from google.cloud import bigquery
 
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s [%(levelname)s] %(message)s",
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
 
 SQLITE_FILE = "xivpf.db"
-BQ_PROJECT  = "ff14-pf-data"
-BQ_DATASET  = "bronze"
-BQ_TABLE    = "raw_listings"
-BATCH_SIZE  = 500   # BQ streaming insert max is 50MB / 50k rows per request - 500 is safe
+BQ_PROJECT = "ff14-pf-data"
+BQ_DATASET = "bronze"
+BQ_TABLE = "raw_listings"
+BATCH_SIZE = 500  # well under BQ's 50k-row / 50MB streaming-insert limit
 
-def convert_row(row: sqlite3.Row) -> dict:
-    # slot_details is already a JSON string in SQLite - pass through as-is
-    slot_details = row["slot_details"]
+
+def convert_row(row):
+    slot_details = row["slot_details"]  # already a JSON string in SQLite
     if slot_details:
         try:
-            # validate it parses, then re-dump cleanly
             slot_details = json.dumps(json.loads(slot_details))
         except (json.JSONDecodeError, TypeError):
             slot_details = None
 
-    # SQLite timestamps are strings - normalize to ISO format for BQ TIMESTAMP
     def to_iso(ts):
         if not ts:
             return None
         try:
-            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S") \
-                           .replace(tzinfo=timezone.utc).isoformat()
+            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).isoformat()
         except ValueError:
             return None
 
     return {
-        "listing_id":    row["listing_id"],
-        "duty":          row["duty"],
-        "category":      row["category"],
-        "description":   row["description"],
-        "creator":       row["creator"],
+        "listing_id": row["listing_id"],
+        "duty": row["duty"],
+        "category": row["category"],
+        "description": row["description"],
+        "creator": row["creator"],
         "creator_server": row["creator_server"],
-        "world":         row["world"],
-        "min_ilvl":      row["min_ilvl"],
-        "slots_filled":  row["slots_filled"],
-        "slots_total":   row["slots_total"],
-        "slot_details":  slot_details,
-        "expires_in":    row["expires_in"],
-        "updated_at":    row["updated_at"],
-        "scraped_at":    to_iso(row["last_seen"]),   # use last_seen as scraped_at
-        "source_file":   "sqlite_backfill",
+        "world": row["world"],
+        "min_ilvl": row["min_ilvl"],
+        "slots_filled": row["slots_filled"],
+        "slots_total": row["slots_total"],
+        "slot_details": slot_details,
+        "expires_in": row["expires_in"],
+        "updated_at": row["updated_at"],
+        "scraped_at": to_iso(row["last_seen"]),
+        "source_file": "sqlite_backfill",
     }
 
 
@@ -77,9 +66,9 @@ def run():
 
     cursor.execute("SELECT * FROM pf_listings ORDER BY id ASC")
 
-    batch       = []
-    inserted    = 0
-    failed      = 0
+    batch = []
+    inserted = 0
+    failed = 0
     batch_count = 0
 
     for row in cursor:
@@ -97,14 +86,12 @@ def run():
                 failed += len(batch)
             else:
                 inserted += len(batch)
-
             batch_count += 1
             batch = []
 
             if batch_count % 20 == 0:
                 log.info("Progress: %d / %d rows inserted", inserted, total)
 
-    # flush final partial batch
     if batch:
         errors = bq_client.insert_rows_json(table_ref, batch)
         if errors:
