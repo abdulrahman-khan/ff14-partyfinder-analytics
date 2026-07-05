@@ -15,6 +15,7 @@ from datetime import datetime, timezone
 
 from google.cloud import storage as gcs
 from google.cloud import bigquery
+from google.cloud.workflows.executions_v1 import ExecutionsClient
 
 # -- Logging -------------------------------------------------------------------
 logging.basicConfig(
@@ -24,11 +25,15 @@ logging.basicConfig(
 log = logging.getLogger(__name__)
 
 # -- Settings ------------------------------------------------------------------
-GCS_BUCKET  = os.environ.get("GCS_BUCKET", "ff14-pf-data-raw")
-BQ_PROJECT  = os.environ.get("BQ_PROJECT", "ff14-pf-data")
-BQ_DATASET  = os.environ.get("BQ_DATASET", "bronze")
-BQ_TABLE    = os.environ.get("BQ_TABLE",   "raw_listings")
-RAW_PREFIX  = "raw/"
+GCS_BUCKET    = os.environ.get("GCS_BUCKET", "ff14-pf-data-raw")
+BQ_PROJECT    = os.environ.get("BQ_PROJECT", "ff14-pf-data")
+BQ_DATASET    = os.environ.get("BQ_DATASET", "bronze")
+BQ_TABLE      = os.environ.get("BQ_TABLE",   "raw_listings")
+RAW_PREFIX    = "raw/"
+
+# Downstream pipeline (duty-extractor -> Dataform) triggered after a successful load.
+REGION        = os.environ.get("REGION",        "us-central1")
+WORKFLOW_NAME = os.environ.get("WORKFLOW_NAME", "ff14-pf-pipeline")
 
 # file_loads schema:
 #   file_name STRING, status STRING, started_at TIMESTAMP,
@@ -246,8 +251,29 @@ def run() -> dict:
     return summary
 
 
+# =============================================================================
+# DOWNSTREAM TRIGGER
+# =============================================================================
+
+def trigger_pipeline():
+    """Kick off the pipeline workflow (duty-extractor -> Dataform) after a load.
+
+    This is what makes "run the loader" (from the gcloud UI or a command)
+    automatically refresh the silver/gold marts. Auth is ADC (the job's SA,
+    which has roles/workflows.invoker). A failure here is logged but does not
+    fail the load, which already succeeded.
+    """
+    parent = f"projects/{BQ_PROJECT}/locations/{REGION}/workflows/{WORKFLOW_NAME}"
+    try:
+        execution = ExecutionsClient().create_execution(parent=parent)
+        log.info("Triggered pipeline workflow: %s", execution.name)
+    except Exception as e:
+        log.error("Load succeeded but failed to trigger pipeline workflow %s: %s", parent, e)
+
+
 # ENTRY POINT =============================================================================
 
 if __name__ == "__main__":
     result = run()
+    trigger_pipeline()
     print("\nDone:", result)

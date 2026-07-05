@@ -18,24 +18,6 @@ resource "google_cloud_scheduler_job" "scraper_trigger" {
   depends_on = [google_cloud_run_v2_job.scraper]
 }
 
-
-
-# loading trigger (hourly) -> every 0 minute of the hour
-resource "google_cloud_scheduler_job" "loader_trigger" {
-  name             = "ff14-pf-loader-trigger"
-  description      = "Trigger the GCS → Bronze loader every hour"
-  schedule         = "0 * * * *"
-  time_zone        = "UTC"
-  attempt_deadline = "620s"
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://${var.region}-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/${var.project_id}/jobs/${google_cloud_run_v2_job.loader.name}:run"
-
-    oauth_token {
-      service_account_email = google_service_account.pipeline.email
-    }
-  }
-
-  depends_on = [google_cloud_run_v2_job.loader]
-}
+# NOTE: loading is manual only (cost control). The GCS -> Bronze loader is run on
+# demand from the gcloud UI or `make run-loader`; it then triggers the Dataform
+# pipeline itself (see services/loader/gcs_to_bronze.py). No hourly loader schedule.

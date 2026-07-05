@@ -61,7 +61,8 @@ resource "google_bigquery_table" "bronze_raw_duties" {
   deletion_protection = false
 
   schema = jsonencode([
-    { name = "duty", type = "STRING", mode = "REQUIRED" }
+    { name = "duty",       type = "STRING", mode = "REQUIRED" },
+    { name = "first_seen", type = "DATE",   mode = "NULLABLE" }
   ])
 
   labels = { project = "ff14-pf", env = "prod" }
@@ -314,21 +315,21 @@ resource "google_bigquery_dataset_iam_member" "analyst_silver" {
   count      = var.analyst_group == "" ? 0 : 1
   dataset_id = google_bigquery_dataset.silver.dataset_id
   role       = "roles/bigquery.dataViewer"
-  member     = "group:${var.analyst_group}"
+  member     = "user:${var.analyst_group}"
 }
 
 resource "google_bigquery_dataset_iam_member" "analyst_gold" {
   count      = var.analyst_group == "" ? 0 : 1
   dataset_id = google_bigquery_dataset.gold.dataset_id
   role       = "roles/bigquery.dataViewer"
-  member     = "group:${var.analyst_group}"
+  member     = "user:${var.analyst_group}"
 }
 
 resource "google_bigquery_dataset_iam_member" "bronze_readers" {
   count      = var.bronze_reader_group == "" ? 0 : 1
   dataset_id = google_bigquery_dataset.bronze.dataset_id
   role       = "roles/bigquery.dataViewer"
-  member     = "group:${var.bronze_reader_group}"
+  member     = "user:${var.bronze_reader_group}"
 }
 
 

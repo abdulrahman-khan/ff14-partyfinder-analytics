@@ -1,9 +1,11 @@
 resource "google_workflows_workflow" "ff14_pipeline" {
   name            = "ff14-pf-pipeline"
   region          = var.region
-  description     = "Hourly pipeline: GCS → Bronze loader → Dataform silver → Dataform gold"
+  description     = "On-demand pipeline: duty-extractor -> Dataform. Triggered by the loader Cloud Run job after a successful load (not scheduled)."
   service_account = google_service_account.pipeline.email
 
+  # The Cloud Run connector (googleapis.run.v2...jobs.run) BLOCKS until each job
+  # finishes, guaranteeing the duty-extractor refreshes raw_duties before Dataform runs.
   source_contents = <<-EOF
     main:
       steps:
@@ -12,81 +14,26 @@ resource "google_workflows_workflow" "ff14_pipeline" {
             assign:
               - project: "${var.project_id}"
               - region: "${var.region}"
-              - job_name: "ff14-pf-loader"
 
         - run_duty_extractor:
-            call: http.post
+            call: googleapis.run.v2.projects.locations.jobs.run
             args:
-              url: $${"https://" + region + "-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/" + project + "/jobs/ff14-pf-duty-extractor:run"}
-              auth:
-                type: OAuth2
-            result: duty_response
-
-        - wait_for_duty_extractor:
-            call: sys.sleep
-            args:
-              seconds: 30
-
-        - run_loader:
-            call: http.post
-            args:
-              url: $${"https://" + region + "-run.googleapis.com/apis/run.googleapis.com/v1/namespaces/" + project + "/jobs/" + job_name + ":run"}
-              auth:
-                type: OAuth2
-            result: loader_response
-
-        - wait_for_loader:
-            call: sys.sleep
-            args:
-              seconds: 120
+              name: $${"projects/" + project + "/locations/" + region + "/jobs/ff14-pf-duty-extractor"}
+            result: duty_result
 
         - run_dataform:
-            call: http.post
+            call: googleapis.run.v2.projects.locations.jobs.run
             args:
-              url: $${"https://dataform.googleapis.com/v1beta1/projects/" + project + "/locations/" + region + "/repositories/ff14-pf-dataform/compilationResults"}
-              auth:
-                type: OAuth2
-              body:
-                gitCommitish: "main"
-            result: compilation_result
-
-        - trigger_dataform_run:
-            call: http.post
-            args:
-              url: $${"https://dataform.googleapis.com/v1beta1/projects/" + project + "/locations/" + region + "/repositories/ff14-pf-dataform/workflowInvocations"}
-              auth:
-                type: OAuth2
-              body:
-                compilationResult: $${compilation_result.body.name}
-            result: invocation_result
+              name: $${"projects/" + project + "/locations/" + region + "/jobs/ff14-pf-dataform-runner"}
+            result: dataform_result
 
         - done:
-            return: $${invocation_result.body.name}
+            return: $${dataform_result}
   EOF
 
   depends_on = [
-    google_cloud_run_v2_job.loader,
+    google_cloud_run_v2_job.duty_extractor,
+    google_cloud_run_v2_job.dataform_runner,
     google_service_account.pipeline,
   ]
-}
-
-#  Scheduler: trigger the workflow hourly 
-# 5 minutes past the hour, 
-resource "google_cloud_scheduler_job" "pipeline_trigger" {
-  name             = "ff14-pf-pipeline-trigger"
-  description      = "Trigger the hourly FF14 pipeline workflow"
-  schedule         = "5 * * * *"
-  time_zone        = "UTC"
-  attempt_deadline = "320s"
-
-  http_target {
-    http_method = "POST"
-    uri         = "https://workflowexecutions.googleapis.com/v1/projects/${var.project_id}/locations/${var.region}/workflows/${google_workflows_workflow.ff14_pipeline.name}/executions"
-
-    oauth_token {
-      service_account_email = google_service_account.pipeline.email
-    }
-  }
-
-  depends_on = [google_workflows_workflow.ff14_pipeline]
 }

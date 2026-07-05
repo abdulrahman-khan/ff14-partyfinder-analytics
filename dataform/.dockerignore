@@ -1,0 +1,4 @@
+node_modules
+.df-credentials.json
+Dockerfile
+.dockerignore

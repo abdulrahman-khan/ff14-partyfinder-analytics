@@ -1,6 +1,7 @@
 variable "project_id" {
   description = "Your GCP project ID"
   type        = string
+  default     = "ff14-pf-data"
 }
 
 variable "region" {
@@ -12,6 +13,7 @@ variable "region" {
 variable "dataform_git_url" {
   description = "HTTPS URL of your GitHub repo, e.g. https://github.com/yourname/ff14-pf.git"
   type        = string
+  default     = "https://github.com/abdulrahman-khan/ff14-partyfinder-analytics.git"
 }
 
 variable "dataform_git_token" {

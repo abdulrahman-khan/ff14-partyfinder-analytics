@@ -29,8 +29,10 @@ resource "google_billing_budget" "monthly" {
 
   amount {
     specified_amount {
-      currency_code = "USD"
-      units         = "5"
+      # currency_code is intentionally omitted: the budget amount must be in the
+      # billing account's own currency, and a mismatch returns an opaque
+      # "400 invalid argument". Omitting it defaults to the account currency.
+      units = "5"
     }
   }
 

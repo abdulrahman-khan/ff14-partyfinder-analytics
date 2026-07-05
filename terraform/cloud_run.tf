@@ -81,6 +81,15 @@ resource "google_cloud_run_v2_job" "loader" {
           name  = "BQ_TABLE"
           value = "raw_listings"
         }
+        # After a successful load, the loader triggers this workflow (duty-extractor -> Dataform).
+        env {
+          name  = "REGION"
+          value = var.region
+        }
+        env {
+          name  = "WORKFLOW_NAME"
+          value = google_workflows_workflow.ff14_pipeline.name
+        }
 
         resources {
           limits = {
@@ -138,4 +147,38 @@ resource "google_cloud_run_v2_job" "duty_extractor" {
   }
 
   labels = { project = "ff14-pf", env = "prod" }
+}
+
+# Runs `dataform run` (the same transform used locally) as a Cloud Run job, so the
+# pipeline no longer depends on the GCP Dataform git-compile API. Auth is ADC = this SA.
+resource "google_cloud_run_v2_job" "dataform_runner" {
+  name     = "ff14-pf-dataform-runner"
+  location = var.region
+
+  template {
+    template {
+      service_account = google_service_account.pipeline.email
+
+      containers {
+        image = "${var.region}-docker.pkg.dev/${var.project_id}/${google_artifact_registry_repository.scraper.repository_id}/dataform-runner:latest"
+
+        resources {
+          limits = {
+            cpu    = "1"
+            memory = "512Mi"
+          }
+        }
+      }
+
+      max_retries = 1
+      timeout     = "900s"
+    }
+  }
+
+  labels = { project = "ff14-pf", env = "prod" }
+
+  depends_on = [
+    google_artifact_registry_repository.scraper,
+    google_service_account.pipeline,
+  ]
 }
