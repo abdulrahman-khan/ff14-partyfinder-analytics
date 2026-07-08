@@ -29,6 +29,11 @@ terraform/*.tfvars
 dataform/.df-credentials.json
 
 
+# Streamlit dashboard secrets / SA key
+services/dashboard/.streamlit/secrets.toml
+services/dashboard/dashboard-reader-key.json
+
+
 # Sensitive Terraform vars
 *.tfvars
 *.tfvars.json
