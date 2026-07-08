@@ -1,0 +1,6 @@
+config {
+  type: "declaration",
+  schema: "bronze",
+  name: "raw_duties_reference",
+  description: "Curated MASTER duty classification, sourced from reference/duties.csv. One row per currently-known duty with content_category AND every flag explicit (is_savage, is_ultimate, is_unreal, is_extreme, is_high_end, is_alliance_raid, is_chaotic_alliance). dim_duties passes these through and falls back to a name-suffix parse only for freshly-scraped duties not yet in the CSV. Loaded via `make load-duties` / `bq load` (native table, not the raw bucket); see reference/README.md. Not managed by Dataform or Terraform, same as dim_worlds."
+}

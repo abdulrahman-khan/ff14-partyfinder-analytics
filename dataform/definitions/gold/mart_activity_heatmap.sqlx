@@ -23,20 +23,20 @@ config {
     post_hour: "Hour of day (UTC) the listing was posted (0-23)",
     listings_posted: "Listing sessions posted in this bucket",
     avg_lifetime_min: "Mean observed lifetime (minutes) of those sessions",
-    fill_rate_pct: "Share of non-flash sessions that reached full"
+    fill_rate_pct: "Share of RESOLVED sessions (filled + expired_partial) that reached full; excludes flash and still-live"
   }
 }
 
 SELECT
   l.pf_region,
   l.pf_datacenter,
-  EXTRACT(DAYOFWEEK FROM l.session_start)                                          AS post_weekday,
+  EXTRACT(DAYOFWEEK FROM l.session_start) AS post_weekday,
   dd.day_name,
   dd.is_weekend,
-  EXTRACT(HOUR FROM l.session_start)                                               AS post_hour,
-  COUNT(*)                                                                         AS listings_posted,
-  ROUND(AVG(l.observed_lifetime_min), 1)                                           AS avg_lifetime_min,
-  ROUND(SAFE_DIVIDE(COUNTIF(l.reached_full = 1), COUNTIF(l.n_snapshots > 1)) * 100, 1) AS fill_rate_pct
+  EXTRACT(HOUR FROM l.session_start) AS post_hour,
+  COUNT(*) AS listings_posted,
+  ROUND(AVG(l.observed_lifetime_min), 1) AS avg_lifetime_min,
+  ROUND(SAFE_DIVIDE(COUNTIF(l.reached_full = 1), COUNTIF(l.outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct
 FROM ${ref("fct_listing_lifecycle")} l
 LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
 WHERE l.pf_region IS NOT NULL

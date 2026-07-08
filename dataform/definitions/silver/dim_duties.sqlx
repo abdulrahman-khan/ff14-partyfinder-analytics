@@ -2,47 +2,76 @@ config {
   type: "table",
   schema: "silver",
   name: "dim_duties",
-  description: "Duty reference dimension - one row per unique duty with difficulty flags and a consolidated content_category. NOTE: classification is LIKE-based against duty names and is not yet validated against real raw_duties values (see improvements.md #1); is_high_end feeds every content filter downstream.",
+  description: "Duty reference dimension - one row per unique duty. ROW SET comes from scraped raw_duties (the cumulative registry of every duty ever seen, so nothing is dropped and new duties appear automatically). CLASSIFICATION comes from the curated master reference/duties.csv (loaded to bronze.raw_duties_reference), which carries content_category AND every flag explicitly (is_savage/is_ultimate/is_unreal/is_extreme/is_high_end/is_alliance_raid/is_chaotic_alliance). dim_duties passes the curated values through and falls back to a name-suffix parse only for a freshly-scraped duty not yet in the CSV. is_curated = 1 when the duty is in the CSV, 0 otherwise (its flags are then the name-suffix fallback until curated). Re-classify a duty = edit reference/duties.csv + `make load-duties`, no code change. CAVEAT: normal alliance-raid PF listings are heavily contaminated by roulette-farm, mechanics tours, and social/RP use of the 24-person alliance chat, so is_alliance_raid activity is NOT reliable raid demand; Chaotic (is_chaotic_alliance) is genuine high-end recruitment by contrast.",
   bigquery: {
     clusterBy: ["is_savage", "is_ultimate"]
   },
   assertions: {
     nonNull: ["duty_key", "duty", "content_category"],
-    uniqueKey: ["duty_key"]
+    uniqueKey: ["duty_key"],
+    rowConditions: [
+      "content_category IN ('savage','ultimate','extreme','unreal','alliance','chaotic','other')",
+      "is_high_end = IF(is_savage = 1 OR is_ultimate = 1 OR is_extreme = 1 OR is_unreal = 1, 1, 0)",
+      "is_chaotic_alliance = 0 OR is_alliance_raid = 1"
+    ]
   },
   columns: {
-    duty_key: "MD5 surrogate key derived from duty name",
+    duty_key: "MD5 surrogate key derived from the scraped duty name (matches fct_listings.duty_key)",
     duty: "Name of duty as it appears in party finder",
     is_savage: "1 if Savage difficulty",
     is_ultimate: "1 if Ultimate difficulty",
     is_unreal: "1 if Unreal difficulty",
     is_extreme: "1 if Extreme difficulty",
-    is_high_end: "1 if any high-end difficulty flag is set",
-    content_category: "Consolidated category: savage / ultimate / extreme / unreal / other"
+    is_high_end: "1 if high-end (savage/ultimate/extreme/unreal)",
+    is_alliance_raid: "1 if a 24-player Alliance Raid (includes Chaotic). NB: contaminated by social/roulette use - not raid demand",
+    is_chaotic_alliance: "1 if a Chaotic Alliance Raid (harder 24-player variant; genuine high-end recruitment)",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_curated: "1 if this duty is in reference/duties.csv; 0 = freshly scraped, not yet curated (flags are the name-suffix fallback)"
   }
 }
 
+WITH duty_ref AS (
+  SELECT
+    LOWER(TRIM(duty)) AS duty_lc,
+    ANY_VALUE(content_category) AS content_category,
+    ANY_VALUE(is_savage) AS is_savage,
+    ANY_VALUE(is_ultimate) AS is_ultimate,
+    ANY_VALUE(is_unreal) AS is_unreal,
+    ANY_VALUE(is_extreme) AS is_extreme,
+    ANY_VALUE(is_high_end) AS is_high_end,
+    ANY_VALUE(is_alliance_raid) AS is_alliance_raid,
+    ANY_VALUE(is_chaotic_alliance) AS is_chaotic_alliance
+  FROM ${ref("raw_duties_reference")}
+  GROUP BY 1
+)
+
+-- Curated CSV value wins; a scraped duty not yet in the CSV falls back to its name suffix.
 SELECT
-  TO_HEX(MD5(duty))                                               AS duty_key,
-  duty,
-  CASE WHEN LOWER(duty) LIKE '%(savage)%'                         THEN 1 ELSE 0 END AS is_savage,
-  CASE WHEN LOWER(duty) LIKE '%(ultimate)%'                       THEN 1 ELSE 0 END AS is_ultimate,
-  CASE WHEN LOWER(duty) LIKE '%(unreal)%'                         THEN 1 ELSE 0 END AS is_unreal,
-  CASE WHEN LOWER(duty) LIKE "the minstrel's ballad:%"
-    OR LOWER(duty) LIKE '%(extreme)'                              THEN 1 ELSE 0 END AS is_extreme,
-  CASE WHEN (
-    LOWER(duty) LIKE '%(savage)%'
-    OR LOWER(duty) LIKE '%(ultimate)%'
-    OR LOWER(duty) LIKE '%(unreal)%'
-    OR LOWER(duty) LIKE "the minstrel's ballad:%"
-    OR LOWER(duty) LIKE '%(extreme)'
-  ) THEN 1 ELSE 0 END                                             AS is_high_end,
-  CASE
-    WHEN LOWER(duty) LIKE '%(savage)%'                            THEN 'savage'
-    WHEN LOWER(duty) LIKE '%(ultimate)%'                          THEN 'ultimate'
-    WHEN LOWER(duty) LIKE '%(unreal)%'                            THEN 'unreal'
-    WHEN LOWER(duty) LIKE "the minstrel's ballad:%"
-      OR LOWER(duty) LIKE '%(extreme)'                           THEN 'extreme'
-    ELSE 'other'
-  END                                                             AS content_category
-FROM ${ref("raw_duties")}
+  TO_HEX(MD5(rd.duty)) AS duty_key,
+  rd.duty,
+  COALESCE(dr.is_savage, IF(LOWER(rd.duty) LIKE '%(savage)%', 1, 0)) AS is_savage,
+  COALESCE(dr.is_ultimate, IF(LOWER(rd.duty) LIKE '%(ultimate)%', 1, 0)) AS is_ultimate,
+  COALESCE(dr.is_unreal, IF(LOWER(rd.duty) LIKE '%(unreal)%', 1, 0)) AS is_unreal,
+  COALESCE(dr.is_extreme, IF(LOWER(rd.duty) LIKE "the minstrel's ballad:%"
+    OR LOWER(rd.duty) LIKE '%(extreme)', 1, 0)) AS is_extreme,
+  COALESCE(dr.is_high_end, IF(
+    LOWER(rd.duty) LIKE '%(savage)%'
+    OR LOWER(rd.duty) LIKE '%(ultimate)%'
+    OR LOWER(rd.duty) LIKE '%(unreal)%'
+    OR LOWER(rd.duty) LIKE "the minstrel's ballad:%"
+    OR LOWER(rd.duty) LIKE '%(extreme)', 1, 0)) AS is_high_end,
+  COALESCE(dr.is_alliance_raid, IF(LOWER(rd.duty) LIKE '%(chaotic)%', 1, 0)) AS is_alliance_raid,
+  COALESCE(dr.is_chaotic_alliance, IF(LOWER(rd.duty) LIKE '%(chaotic)%', 1, 0)) AS is_chaotic_alliance,
+  COALESCE(dr.content_category,
+    CASE
+      WHEN LOWER(rd.duty) LIKE '%(savage)%' THEN 'savage'
+      WHEN LOWER(rd.duty) LIKE '%(ultimate)%' THEN 'ultimate'
+      WHEN LOWER(rd.duty) LIKE '%(unreal)%' THEN 'unreal'
+      WHEN LOWER(rd.duty) LIKE "the minstrel's ballad:%" OR LOWER(rd.duty) LIKE '%(extreme)' THEN 'extreme'
+      WHEN LOWER(rd.duty) LIKE '%(chaotic)%' THEN 'chaotic'
+      ELSE 'other'
+    END
+  ) AS content_category,
+  IF(dr.duty_lc IS NOT NULL, 1, 0) AS is_curated
+FROM ${ref("raw_duties")} rd
+LEFT JOIN duty_ref dr ON dr.duty_lc = LOWER(TRIM(rd.duty))

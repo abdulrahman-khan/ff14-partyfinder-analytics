@@ -1,0 +1,526 @@
+duty,content_category,is_savage,is_ultimate,is_unreal,is_extreme,is_high_end,is_alliance_raid,is_chaotic_alliance
+Aglaia,alliance,0,0,0,0,0,1,0
+Dun Scaith,alliance,0,0,0,0,0,1,0
+Euphrosyne,alliance,0,0,0,0,0,1,0
+Jeuno: The First Walk,alliance,0,0,0,0,0,1,0
+San d'Oria: The Second Walk,alliance,0,0,0,0,0,1,0
+Syrcus Tower,alliance,0,0,0,0,0,1,0
+Thaleia,alliance,0,0,0,0,0,1,0
+The Copied Factory,alliance,0,0,0,0,0,1,0
+The Labyrinth of the Ancients,alliance,0,0,0,0,0,1,0
+The Orbonne Monastery,alliance,0,0,0,0,0,1,0
+The Puppets' Bunker,alliance,0,0,0,0,0,1,0
+The Ridorana Lighthouse,alliance,0,0,0,0,0,1,0
+The Royal City of Rabanastre,alliance,0,0,0,0,0,1,0
+The Tower at Paradigm's Breach,alliance,0,0,0,0,0,1,0
+The Void Ark,alliance,0,0,0,0,0,1,0
+The Weeping City of Mhach,alliance,0,0,0,0,0,1,0
+The World of Darkness,alliance,0,0,0,0,0,1,0
+Windurst: The Third Walk,alliance,0,0,0,0,0,1,0
+The Cloud of Darkness (Chaotic),chaotic,0,0,0,0,0,1,1
+Castrum Marinum (Extreme),other,0,0,0,0,0,0,0
+Cinder Drift (Extreme),extreme,0,0,0,1,1,0,0
+Containment Bay P1T6 (Extreme),extreme,0,0,0,1,1,0,0
+Containment Bay S1T7 (Extreme),extreme,0,0,0,1,1,0,0
+Containment Bay Z1T9 (Extreme),extreme,0,0,0,1,1,0,0
+Emanation (Extreme),extreme,0,0,0,1,1,0,0
+Everkeep (Extreme),extreme,0,0,0,1,1,0,0
+Hell on Rails (Extreme),extreme,0,0,0,1,1,0,0
+Hells' Kier (Extreme),extreme,0,0,0,1,1,0,0
+Memoria Misera (Extreme),extreme,0,0,0,1,1,0,0
+Mount Ordeals (Extreme),extreme,0,0,0,1,1,0,0
+Recollection (Extreme),extreme,0,0,0,1,1,0,0
+Storm's Crown (Extreme),extreme,0,0,0,1,1,0,0
+The Abyssal Fracture (Extreme),extreme,0,0,0,1,1,0,0
+The Akh Afah Amphitheatre (Extreme),extreme,0,0,0,1,1,0,0
+The Bowl of Embers (Extreme),extreme,0,0,0,1,1,0,0
+The Cloud Deck (Extreme),extreme,0,0,0,1,1,0,0
+The Crown of the Immaculate (Extreme),extreme,0,0,0,1,1,0,0
+The Dancing Plague (Extreme),extreme,0,0,0,1,1,0,0
+The Great Hunt (Extreme),extreme,0,0,0,1,1,0,0
+The Howling Eye (Extreme),extreme,0,0,0,1,1,0,0
+The Jade Stoa (Extreme),extreme,0,0,0,1,1,0,0
+The Limitless Blue (Extreme),extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Endsinger's Aria,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Hades's Elegy,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Hydaelyn's Call,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Necron's Embrace,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Nidhogg's Rage,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Shinryu's Domain,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Sphene's Burden,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Thordan's Reign,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Tsukuyomi's Pain,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Ultima's Bane,extreme,0,0,0,1,1,0,0
+The Minstrel's Ballad: Zodiark's Fall,extreme,0,0,0,1,1,0,0
+The Navel (Extreme),extreme,0,0,0,1,1,0,0
+The Pool of Tribute (Extreme),extreme,0,0,0,1,1,0,0
+The Seat of Sacrifice (Extreme),extreme,0,0,0,1,1,0,0
+The Striking Tree (Extreme),extreme,0,0,0,1,1,0,0
+The Unmaking (Extreme),extreme,0,0,0,1,1,0,0
+The Voidcast Dais (Extreme),extreme,0,0,0,1,1,0,0
+The Whorleater (Extreme),extreme,0,0,0,1,1,0,0
+The Windward Wilds (Extreme),extreme,0,0,0,1,1,0,0
+The Wreath of Snakes (Extreme),extreme,0,0,0,1,1,0,0
+Thok ast Thok (Extreme),extreme,0,0,0,1,1,0,0
+Thornmarch (Extreme),extreme,0,0,0,1,1,0,0
+Worqor Lar Dor (Extreme),extreme,0,0,0,1,1,0,0
+A Relic Reborn: the Chimera,other,0,0,0,0,0,0,0
+A Relic Reborn: the Hydra,other,0,0,0,0,0,0,0
+AAC Cruiserweight M1,other,0,0,0,0,0,0,0
+AAC Cruiserweight M2,other,0,0,0,0,0,0,0
+AAC Cruiserweight M3,other,0,0,0,0,0,0,0
+AAC Cruiserweight M4,other,0,0,0,0,0,0,0
+AAC Heavyweight M1,other,0,0,0,0,0,0,0
+AAC Heavyweight M2,other,0,0,0,0,0,0,0
+AAC Heavyweight M3,other,0,0,0,0,0,0,0
+AAC Heavyweight M4,other,0,0,0,0,0,0,0
+AAC Light-heavyweight M1,other,0,0,0,0,0,0,0
+AAC Light-heavyweight M2,other,0,0,0,0,0,0,0
+AAC Light-heavyweight M3,other,0,0,0,0,0,0,0
+AAC Light-heavyweight M4,other,0,0,0,0,0,0,0
+Abyssos: The Eighth Circle,other,0,0,0,0,0,0,0
+Abyssos: The Fifth Circle,other,0,0,0,0,0,0,0
+Abyssos: The Seventh Circle,other,0,0,0,0,0,0,0
+Abyssos: The Sixth Circle,other,0,0,0,0,0,0,0
+Akadaemia Anyder,other,0,0,0,0,0,0,0
+Ala Mhigo,other,0,0,0,0,0,0,0
+Alexander - The Arm of the Father,other,0,0,0,0,0,0,0
+Alexander - The Arm of the Son,other,0,0,0,0,0,0,0
+Alexander - The Breath of the Creator,other,0,0,0,0,0,0,0
+Alexander - The Burden of the Father,other,0,0,0,0,0,0,0
+Alexander - The Burden of the Son,other,0,0,0,0,0,0,0
+Alexander - The Cuff of the Father,other,0,0,0,0,0,0,0
+Alexander - The Cuff of the Son,other,0,0,0,0,0,0,0
+Alexander - The Eyes of the Creator,other,0,0,0,0,0,0,0
+Alexander - The Fist of the Father,other,0,0,0,0,0,0,0
+Alexander - The Fist of the Son,other,0,0,0,0,0,0,0
+Alexander - The Heart of the Creator,other,0,0,0,0,0,0,0
+Alexander - The Soul of the Creator,other,0,0,0,0,0,0,0
+Alexandria,other,0,0,0,0,0,0,0
+All Levels,other,0,0,0,0,0,0,0
+All's Well that Ends in the Well,other,0,0,0,0,0,0,0
+Aloalo Island,other,0,0,0,0,0,0,0
+Alphascape V1.0,other,0,0,0,0,0,0,0
+Alphascape V2.0,other,0,0,0,0,0,0,0
+Alphascape V3.0,other,0,0,0,0,0,0,0
+Alphascape V4.0,other,0,0,0,0,0,0,0
+Alzadaal's Legacy,other,0,0,0,0,0,0,0
+Amaurot,other,0,0,0,0,0,0,0
+Amdapor Keep,other,0,0,0,0,0,0,0
+Amdapor Keep (Hard),other,0,0,0,0,0,0,0
+Amh Araeng,other,0,0,0,0,0,0,0
+Anabaseios: The Eleventh Circle,other,0,0,0,0,0,0,0
+Anabaseios: The Ninth Circle,other,0,0,0,0,0,0,0
+Anabaseios: The Tenth Circle,other,0,0,0,0,0,0,0
+Anabaseios: The Twelfth Circle,other,0,0,0,0,0,0,0
+Anamnesis Anyder,other,0,0,0,0,0,0,0
+Annoy the Void,other,0,0,0,0,0,0,0
+Another Aloalo Island,other,0,0,0,0,0,0,0
+Another Merchant's Tale,other,0,0,0,0,0,0,0
+Another Mount Rokkon,other,0,0,0,0,0,0,0
+Another Sil'dihn Subterrane,other,0,0,0,0,0,0,0
+Archaeoskin Treasure Map,other,0,0,0,0,0,0,0
+Asphodelos: The First Circle,other,0,0,0,0,0,0,0
+Asphodelos: The Fourth Circle,other,0,0,0,0,0,0,0
+Asphodelos: The Second Circle,other,0,0,0,0,0,0,0
+Asphodelos: The Third Circle,other,0,0,0,0,0,0,0
+Azys Lla,other,0,0,0,0,0,0,0
+Baelsar's Wall,other,0,0,0,0,0,0,0
+Bardam's Mettle,other,0,0,0,0,0,0,0
+Basic Training: Enemy Parties,other,0,0,0,0,0,0,0
+Basic Training: Enemy Strongholds,other,0,0,0,0,0,0,0
+Battle in the Big Keep,other,0,0,0,0,0,0,0
+Battle on the Big Bridge,other,0,0,0,0,0,0,0
+Boarskin Treasure Map,other,0,0,0,0,0,0,0
+Br'aaxskin Treasure Map,other,0,0,0,0,0,0,0
+Brayflox's Longstop,other,0,0,0,0,0,0,0
+Brayflox's Longstop (Hard),other,0,0,0,0,0,0,0
+Castrum Abania,other,0,0,0,0,0,0,0
+Castrum Fluminis,other,0,0,0,0,0,0,0
+Castrum Marinum,other,0,0,0,0,0,0,0
+Castrum Meridianum,other,0,0,0,0,0,0,0
+Central Shroud,other,0,0,0,0,0,0,0
+Central Thanalan,other,0,0,0,0,0,0,0
+Chocobo Race: Random,other,0,0,0,0,0,0,0
+Chocobo Race: Random (No Rewards),other,0,0,0,0,0,0,0
+Chocobo Race: Sagolii Road,other,0,0,0,0,0,0,0
+Chocobo Race: Tranquil Paths (No Rewards),other,0,0,0,0,0,0,0
+Cinder Drift,other,0,0,0,0,0,0,0
+Coerthas Central Highlands,other,0,0,0,0,0,0,0
+Coerthas Western Highlands,other,0,0,0,0,0,0,0
+Conceivably Special Treasure Map,other,0,0,0,0,0,0,0
+Containment Bay P1T6,other,0,0,0,0,0,0,0
+Containment Bay S1T7,other,0,0,0,0,0,0,0
+Containment Bay Z1T9,other,0,0,0,0,0,0,0
+Copperbell Mines,other,0,0,0,0,0,0,0
+Copperbell Mines (Hard),other,0,0,0,0,0,0,0
+Crystalline Conflict (Casual Match),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - Archeia Harmonias),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - Cloud Nine),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - The Bayside Battleground),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - The Clockwork Castletown),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - The Palaistra),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - The Red Sands),other,0,0,0,0,0,0,0
+Crystalline Conflict (Custom Match - The Volcanic Heart),other,0,0,0,0,0,0,0
+Cutter's Cry,other,0,0,0,0,0,0,0
+Daily Challenge: Frontline,other,0,0,0,0,0,0,0
+DeepDungeon,other,0,0,0,0,0,0,0
+Deltascape V1.0,other,0,0,0,0,0,0,0
+Deltascape V2.0,other,0,0,0,0,0,0,0
+Deltascape V3.0,other,0,0,0,0,0,0,0
+Deltascape V4.0,other,0,0,0,0,0,0,0
+Delubrum Reginae,other,0,0,0,0,0,0,0
+Dohn Mheg,other,0,0,0,0,0,0,0
+Doma Castle,other,0,0,0,0,0,0,0
+Dragonskin Treasure Map,other,0,0,0,0,0,0,0
+Dungeon,other,0,0,0,0,0,0,0
+Duty Roulette: Alliance Raids,other,0,0,0,0,0,0,0
+Duty Roulette: Expert,other,0,0,0,0,0,0,0
+Duty Roulette: Guildhests,other,0,0,0,0,0,0,0
+Duty Roulette: High-level Dungeons,other,0,0,0,0,0,0,0
+Duty Roulette: Level Cap Dungeons,other,0,0,0,0,0,0,0
+Duty Roulette: Leveling,other,0,0,0,0,0,0,0
+Duty Roulette: Main Scenario,other,0,0,0,0,0,0,0
+Duty Roulette: Normal Raids,other,0,0,0,0,0,0,0
+Duty Roulette: Trials,other,0,0,0,0,0,0,0
+DutyRoulette,other,0,0,0,0,0,0,0
+Dzemael Darkhold,other,0,0,0,0,0,0,0
+East Shroud,other,0,0,0,0,0,0,0
+Eastern La Noscea,other,0,0,0,0,0,0,0
+Eastern Thanalan,other,0,0,0,0,0,0,0
+Eden's Gate: Descent,other,0,0,0,0,0,0,0
+Eden's Gate: Inundation,other,0,0,0,0,0,0,0
+Eden's Gate: Resurrection,other,0,0,0,0,0,0,0
+Eden's Gate: Sepulture,other,0,0,0,0,0,0,0
+Eden's Promise: Anamorphosis,other,0,0,0,0,0,0,0
+Eden's Promise: Eternity,other,0,0,0,0,0,0,0
+Eden's Promise: Litany,other,0,0,0,0,0,0,0
+Eden's Promise: Umbra,other,0,0,0,0,0,0,0
+Eden's Verse: Fulmination,other,0,0,0,0,0,0,0
+Eden's Verse: Furor,other,0,0,0,0,0,0,0
+Eden's Verse: Iconoclasm,other,0,0,0,0,0,0,0
+Eden's Verse: Refulgence,other,0,0,0,0,0,0,0
+Elpis,other,0,0,0,0,0,0,0
+Emanation,other,0,0,0,0,0,0,0
+Everkeep,other,0,0,0,0,0,0,0
+FATEs,other,0,0,0,0,0,0,0
+FieldOperation,other,0,0,0,0,0,0,0
+Flicking Sticks and Taking Names,other,0,0,0,0,0,0,0
+"Four-player Mahjong (Full Match, Kuitan Disabled)",other,0,0,0,0,0,0,0
+"Four-player Mahjong (Full Match, Kuitan Enabled)",other,0,0,0,0,0,0,0
+"Four-player Mahjong (Quick Match, Kuitan Disabled)",other,0,0,0,0,0,0,0
+"Four-player Mahjong (Quick Match, Kuitan Enabled)",other,0,0,0,0,0,0,0
+GATEs,other,0,0,0,0,0,0,0
+Gaganaskin Treasure Map,other,0,0,0,0,0,0,0
+Gargantuaskin Treasure Map,other,0,0,0,0,0,0,0
+Garlemald,other,0,0,0,0,0,0,0
+Gazelleskin Treasure Map,other,0,0,0,0,0,0,0
+Gliderskin Treasure Map,other,0,0,0,0,0,0,0
+Halatali,other,0,0,0,0,0,0,0
+Halatali (Hard),other,0,0,0,0,0,0,0
+Haukke Manor,other,0,0,0,0,0,0,0
+Haukke Manor (Hard),other,0,0,0,0,0,0,0
+Hell on Rails,other,0,0,0,0,0,0,0
+Hells' Kier,other,0,0,0,0,0,0,0
+Hells' Lid,other,0,0,0,0,0,0,0
+Heritage Found,other,0,0,0,0,0,0,0
+Hero on the Half Shell,other,0,0,0,0,0,0,0
+Hidden Gorge,other,0,0,0,0,0,0,0
+HighEndDuty,other,0,0,0,0,0,0,0
+Holminster Switch,other,0,0,0,0,0,0,0
+Hullbreaker Isle,other,0,0,0,0,0,0,0
+Hullbreaker Isle (Hard),other,0,0,0,0,0,0,0
+Ihuykatumu,other,0,0,0,0,0,0,0
+Il Mheg,other,0,0,0,0,0,0,0
+Kholusia,other,0,0,0,0,0,0,0
+Kozama'uka,other,0,0,0,0,0,0,0
+Ktisis Hyperboreia,other,0,0,0,0,0,0,0
+Kugane Castle,other,0,0,0,0,0,0,0
+Kugane Ohashi,other,0,0,0,0,0,0,0
+Kumbhiraskin Treasure Map,other,0,0,0,0,0,0,0
+Labyrinthos,other,0,0,0,0,0,0,0
+Lakeland,other,0,0,0,0,0,0,0
+Lapis Manalis,other,0,0,0,0,0,0,0
+Leather Buried Treasure Map,other,0,0,0,0,0,0,0
+Leather Treasure Map,other,0,0,0,0,0,0,0
+Living Memory,other,0,0,0,0,0,0,0
+LoVM: Player Battle (Non-RP),other,0,0,0,0,0,0,0
+Loboskin Treasure Map,other,0,0,0,0,0,0,0
+Long Live the Queen,other,0,0,0,0,0,0,0
+Lower La Noscea,other,0,0,0,0,0,0,0
+Malikah's Well,other,0,0,0,0,0,0,0
+Mare Lamentorum,other,0,0,0,0,0,0,0
+Matoya's Relict,other,0,0,0,0,0,0,0
+Middle La Noscea,other,0,0,0,0,0,0,0
+Mistwake,other,0,0,0,0,0,0,0
+Mor Dhona,other,0,0,0,0,0,0,0
+More than a Feeler,other,0,0,0,0,0,0,0
+Mount Ordeals,other,0,0,0,0,0,0,0
+Mount Rokkon,other,0,0,0,0,0,0,0
+Mt. Gulg,other,0,0,0,0,0,0,0
+Neverreap,other,0,0,0,0,0,0,0
+None,other,0,0,0,0,0,0,0
+North Shroud,other,0,0,0,0,0,0,0
+Northern Thanalan,other,0,0,0,0,0,0,0
+Ocean Fishing,other,0,0,0,0,0,0,0
+Onsal Hakair (Danshig Naadam),other,0,0,0,0,0,0,0
+Ophiotauroskin Treasure Map,other,0,0,0,0,0,0,0
+Origenics,other,0,0,0,0,0,0,0
+Ostensibly Special Treasure Map,other,0,0,0,0,0,0,0
+Outer La Noscea,other,0,0,0,0,0,0,0
+Paglth'an,other,0,0,0,0,0,0,0
+Pharos Sirius,other,0,0,0,0,0,0,0
+Pharos Sirius (Hard),other,0,0,0,0,0,0,0
+Potentially Special Treasure Map,other,0,0,0,0,0,0,0
+Pulling Poison Posies,other,0,0,0,0,0,0,0
+PvP,other,0,0,0,0,0,0,0
+Raid,other,0,0,0,0,0,0,0
+Recollection,other,0,0,0,0,0,0,0
+Saigaskin Treasure Map,other,0,0,0,0,0,0,0
+Saint Mocianne's Arboretum,other,0,0,0,0,0,0,0
+Saint Mocianne's Arboretum (Hard),other,0,0,0,0,0,0,0
+Sastasha,other,0,0,0,0,0,0,0
+Sastasha (Hard),other,0,0,0,0,0,0,0
+Seal Rock (Seize),other,0,0,0,0,0,0,0
+Seemingly Special Treasure Map,other,0,0,0,0,0,0,0
+Shaaloani,other,0,0,0,0,0,0,0
+Shadow and Claw,other,0,0,0,0,0,0,0
+Shisui of the Violet Tides,other,0,0,0,0,0,0,0
+Sigmascape V1.0,other,0,0,0,0,0,0,0
+Sigmascape V2.0,other,0,0,0,0,0,0,0
+Sigmascape V3.0,other,0,0,0,0,0,0,0
+Sigmascape V4.0,other,0,0,0,0,0,0,0
+Smileton,other,0,0,0,0,0,0,0
+Snowcloak,other,0,0,0,0,0,0,0
+Sohm Al,other,0,0,0,0,0,0,0
+Sohm Al (Hard),other,0,0,0,0,0,0,0
+Sohr Khai,other,0,0,0,0,0,0,0
+Solemn Trinity,other,0,0,0,0,0,0,0
+South Shroud,other,0,0,0,0,0,0,0
+Southern Thanalan,other,0,0,0,0,0,0,0
+Stinging Back,other,0,0,0,0,0,0,0
+Storm's Crown,other,0,0,0,0,0,0,0
+Tender Valley,other,0,0,0,0,0,0,0
+Thavnair,other,0,0,0,0,0,0,0
+The Abyssal Fracture,other,0,0,0,0,0,0,0
+The Aery,other,0,0,0,0,0,0,0
+The Aetherfont,other,0,0,0,0,0,0,0
+The Aetherochemical Research Facility,other,0,0,0,0,0,0,0
+The Ageless Necropolis,other,0,0,0,0,0,0,0
+The Aitiascope,other,0,0,0,0,0,0,0
+The Akh Afah Amphitheatre (Hard),other,0,0,0,0,0,0,0
+The Antitower,other,0,0,0,0,0,0,0
+The Aurum Vale,other,0,0,0,0,0,0,0
+The Azim Steppe,other,0,0,0,0,0,0,0
+The Binding Coil of Bahamut - Turn 1,other,0,0,0,0,0,0,0
+The Binding Coil of Bahamut - Turn 2,other,0,0,0,0,0,0,0
+The Binding Coil of Bahamut - Turn 3,other,0,0,0,0,0,0,0
+The Binding Coil of Bahamut - Turn 4,other,0,0,0,0,0,0,0
+The Binding Coil of Bahamut - Turn 5,other,0,0,0,0,0,0,0
+The Borderland Ruins (Secure),other,0,0,0,0,0,0,0
+The Bowl of Embers,other,0,0,0,0,0,0,0
+The Bowl of Embers (Hard),other,0,0,0,0,0,0,0
+The Bozjan Southern Front,other,0,0,0,0,0,0,0
+The Burn,other,0,0,0,0,0,0,0
+The Chrysalis,other,0,0,0,0,0,0,0
+The Churning Mists,other,0,0,0,0,0,0,0
+The Cloud Deck,other,0,0,0,0,0,0,0
+The Clyteum,other,0,0,0,0,0,0,0
+The Crown of the Immaculate,other,0,0,0,0,0,0,0
+The Dancing Plague,other,0,0,0,0,0,0,0
+The Dark Inside,other,0,0,0,0,0,0,0
+The Dead Ends,other,0,0,0,0,0,0,0
+The Diadem,other,0,0,0,0,0,0,0
+The Dragon's Neck,other,0,0,0,0,0,0,0
+The Dravanian Forelands,other,0,0,0,0,0,0,0
+The Dravanian Hinterlands,other,0,0,0,0,0,0,0
+The Drowned City of Skalla,other,0,0,0,0,0,0,0
+The Dusk Vigil,other,0,0,0,0,0,0,0
+The Dying Gasp,other,0,0,0,0,0,0,0
+The Fell Court of Troia,other,0,0,0,0,0,0,0
+The Fields of Glory (Shatter),other,0,0,0,0,0,0,0
+The Final Coil of Bahamut - Turn 1,other,0,0,0,0,0,0,0
+The Final Coil of Bahamut - Turn 2,other,0,0,0,0,0,0,0
+The Final Coil of Bahamut - Turn 3,other,0,0,0,0,0,0,0
+The Final Coil of Bahamut - Turn 4,other,0,0,0,0,0,0,0
+The Final Day,other,0,0,0,0,0,0,0
+The Final Steps of Faith,other,0,0,0,0,0,0,0
+"The Forbidden Land, Eureka Anemos",other,0,0,0,0,0,0,0
+"The Forbidden Land, Eureka Hydatos",other,0,0,0,0,0,0,0
+"The Forbidden Land, Eureka Pagos",other,0,0,0,0,0,0,0
+"The Forbidden Land, Eureka Pyros",other,0,0,0,0,0,0,0
+The Fractal Continuum,other,0,0,0,0,0,0,0
+The Fractal Continuum (Hard),other,0,0,0,0,0,0,0
+The Fringes,other,0,0,0,0,0,0,0
+The Ghimlyt Dark,other,0,0,0,0,0,0,0
+The Gilded Araya,other,0,0,0,0,0,0,0
+The Grand Cosmos,other,0,0,0,0,0,0,0
+The Great Gubal Library,other,0,0,0,0,0,0,0
+The Great Gubal Library (Hard),other,0,0,0,0,0,0,0
+The Great Hunt,other,0,0,0,0,0,0,0
+The Heroes' Gauntlet,other,0,0,0,0,0,0,0
+The Howling Eye,other,0,0,0,0,0,0,0
+The Howling Eye (Hard),other,0,0,0,0,0,0,0
+The Hunt,other,0,0,0,0,0,0,0
+The Interphos,other,0,0,0,0,0,0,0
+The Jade Stoa,other,0,0,0,0,0,0,0
+The Keeper of the Lake,other,0,0,0,0,0,0,0
+The Limitless Blue (Hard),other,0,0,0,0,0,0,0
+The Lochs,other,0,0,0,0,0,0,0
+The Lost City of Amdapor,other,0,0,0,0,0,0,0
+The Lost City of Amdapor (Hard),other,0,0,0,0,0,0,0
+The Lunar Subterrane,other,0,0,0,0,0,0,0
+The Merchant's Tale,other,0,0,0,0,0,0,0
+The Merchant's Tale (Advanced),other,0,0,0,0,0,0,0
+The Meso Terminal,other,0,0,0,0,0,0,0
+The Mothercrystal,other,0,0,0,0,0,0,0
+The Navel,other,0,0,0,0,0,0,0
+The Navel (Hard),other,0,0,0,0,0,0,0
+The Occult Crescent: South Horn,other,0,0,0,0,0,0,0
+The Peaks,other,0,0,0,0,0,0,0
+The Pool of Tribute,other,0,0,0,0,0,0,0
+The Porta Decumana,other,0,0,0,0,0,0,0
+The Praetorium,other,0,0,0,0,0,0,0
+The Qitana Ravel,other,0,0,0,0,0,0,0
+The Rak'tika Greatwood,other,0,0,0,0,0,0,0
+The Royal Menagerie,other,0,0,0,0,0,0,0
+The Ruby Sea,other,0,0,0,0,0,0,0
+The Sea of Clouds,other,0,0,0,0,0,0,0
+The Seat of Sacrifice,other,0,0,0,0,0,0,0
+The Second Coil of Bahamut - Turn 1,other,0,0,0,0,0,0,0
+The Second Coil of Bahamut - Turn 2,other,0,0,0,0,0,0,0
+The Second Coil of Bahamut - Turn 3,other,0,0,0,0,0,0,0
+The Second Coil of Bahamut - Turn 4,other,0,0,0,0,0,0,0
+The Sil'dihn Subterrane,other,0,0,0,0,0,0,0
+The Singularity Reactor,other,0,0,0,0,0,0,0
+The Sirensong Sea,other,0,0,0,0,0,0,0
+The Skydeep Cenote,other,0,0,0,0,0,0,0
+The Stigma Dreamscape,other,0,0,0,0,0,0,0
+The Stone Vigil,other,0,0,0,0,0,0,0
+The Stone Vigil (Hard),other,0,0,0,0,0,0,0
+The Strayborough Deadwalk,other,0,0,0,0,0,0,0
+The Striking Tree (Hard),other,0,0,0,0,0,0,0
+The Sunken Temple of Qarn,other,0,0,0,0,0,0,0
+The Sunken Temple of Qarn (Hard),other,0,0,0,0,0,0,0
+The Swallow's Compass,other,0,0,0,0,0,0,0
+The Tam-Tara Deepcroft,other,0,0,0,0,0,0,0
+The Tam-Tara Deepcroft (Hard),other,0,0,0,0,0,0,0
+The Tempest,other,0,0,0,0,0,0,0
+The Temple of the Fist,other,0,0,0,0,0,0,0
+The Thousand Maws of Toto-Rak,other,0,0,0,0,0,0,0
+The Tower of Babil,other,0,0,0,0,0,0,0
+The Tower of Zot,other,0,0,0,0,0,0,0
+The Triple Triad Battlehall,other,0,0,0,0,0,0,0
+The Twinning,other,0,0,0,0,0,0,0
+The Underkeep,other,0,0,0,0,0,0,0
+The Unmaking,other,0,0,0,0,0,0,0
+The Vault,other,0,0,0,0,0,0,0
+The Voidcast Dais,other,0,0,0,0,0,0,0
+The Wanderer's Palace,other,0,0,0,0,0,0,0
+The Wanderer's Palace (Hard),other,0,0,0,0,0,0,0
+The Whorleater (Hard),other,0,0,0,0,0,0,0
+The Windward Wilds,other,0,0,0,0,0,0,0
+The Wreath of Snakes,other,0,0,0,0,0,0,0
+Thok ast Thok (Hard),other,0,0,0,0,0,0,0
+Thornmarch (Hard),other,0,0,0,0,0,0,0
+Toadskin Treasure Map,other,0,0,0,0,0,0,0
+Trial,other,0,0,0,0,0,0,0
+Triple Triad Invitational Parlor,other,0,0,0,0,0,0,0
+Ultima Thule,other,0,0,0,0,0,0,0
+Under the Armor,other,0,0,0,0,0,0,0
+Upper La Noscea,other,0,0,0,0,0,0,0
+Urqopacha,other,0,0,0,0,0,0,0
+Urth's Fount,other,0,0,0,0,0,0,0
+Vanaspati,other,0,0,0,0,0,0,0
+Vanguard,other,0,0,0,0,0,0,0
+VariantAndCriterionDungeon,other,0,0,0,0,0,0,0
+Ward Up,other,0,0,0,0,0,0,0
+Western La Noscea,other,0,0,0,0,0,0,0
+Western Thanalan,other,0,0,0,0,0,0,0
+Worqor Chirteh (Triumph),other,0,0,0,0,0,0,0
+Worqor Lar Dor,other,0,0,0,0,0,0,0
+Worqor Zormor,other,0,0,0,0,0,0,0
+Wyvernskin Treasure Map,other,0,0,0,0,0,0,0
+Xelphatol,other,0,0,0,0,0,0,0
+Yak T'el,other,0,0,0,0,0,0,0
+Yanxia,other,0,0,0,0,0,0,0
+Yuweyawata Field Station,other,0,0,0,0,0,0,0
+Zadnor,other,0,0,0,0,0,0,0
+Zonureskin Treasure Map,other,0,0,0,0,0,0,0
+AAC Cruiserweight M1 (Savage),savage,1,0,0,0,1,0,0
+AAC Cruiserweight M2 (Savage),savage,1,0,0,0,1,0,0
+AAC Cruiserweight M3 (Savage),savage,1,0,0,0,1,0,0
+AAC Cruiserweight M4 (Savage),savage,1,0,0,0,1,0,0
+AAC Heavyweight M1 (Savage),savage,1,0,0,0,1,0,0
+AAC Heavyweight M2 (Savage),savage,1,0,0,0,1,0,0
+AAC Heavyweight M3 (Savage),savage,1,0,0,0,1,0,0
+AAC Heavyweight M4 (Savage),savage,1,0,0,0,1,0,0
+AAC Light-heavyweight M1 (Savage),savage,1,0,0,0,1,0,0
+AAC Light-heavyweight M2 (Savage),savage,1,0,0,0,1,0,0
+AAC Light-heavyweight M3 (Savage),savage,1,0,0,0,1,0,0
+AAC Light-heavyweight M4 (Savage),savage,1,0,0,0,1,0,0
+Abyssos: The Eighth Circle (Savage),savage,1,0,0,0,1,0,0
+Abyssos: The Fifth Circle (Savage),savage,1,0,0,0,1,0,0
+Abyssos: The Seventh Circle (Savage),savage,1,0,0,0,1,0,0
+Abyssos: The Sixth Circle (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Arm of the Father (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Arm of the Son (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Breath of the Creator (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Burden of the Father (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Burden of the Son (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Cuff of the Father (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Cuff of the Son (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Eyes of the Creator (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Fist of the Father (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Fist of the Son (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Heart of the Creator (Savage),savage,1,0,0,0,1,0,0
+Alexander - The Soul of the Creator (Savage),savage,1,0,0,0,1,0,0
+Alphascape V1.0 (Savage),savage,1,0,0,0,1,0,0
+Alphascape V2.0 (Savage),savage,1,0,0,0,1,0,0
+Alphascape V3.0 (Savage),savage,1,0,0,0,1,0,0
+Alphascape V4.0 (Savage),savage,1,0,0,0,1,0,0
+Anabaseios: The Eleventh Circle (Savage),savage,1,0,0,0,1,0,0
+Anabaseios: The Ninth Circle (Savage),savage,1,0,0,0,1,0,0
+Anabaseios: The Tenth Circle (Savage),savage,1,0,0,0,1,0,0
+Anabaseios: The Twelfth Circle (Savage),savage,1,0,0,0,1,0,0
+Another Aloalo Island (Savage),savage,1,0,0,0,1,0,0
+Another Mount Rokkon (Savage),savage,1,0,0,0,1,0,0
+Another Sil'dihn Subterrane (Savage),savage,1,0,0,0,1,0,0
+Asphodelos: The First Circle (Savage),savage,1,0,0,0,1,0,0
+Asphodelos: The Fourth Circle (Savage),savage,1,0,0,0,1,0,0
+Asphodelos: The Second Circle (Savage),savage,1,0,0,0,1,0,0
+Asphodelos: The Third Circle (Savage),savage,1,0,0,0,1,0,0
+Deltascape V1.0 (Savage),savage,1,0,0,0,1,0,0
+Deltascape V2.0 (Savage),savage,1,0,0,0,1,0,0
+Deltascape V3.0 (Savage),savage,1,0,0,0,1,0,0
+Deltascape V4.0 (Savage),savage,1,0,0,0,1,0,0
+Delubrum Reginae (Savage),other,0,0,0,0,0,0,0
+Eden's Gate: Descent (Savage),savage,1,0,0,0,1,0,0
+Eden's Gate: Inundation (Savage),savage,1,0,0,0,1,0,0
+Eden's Gate: Resurrection (Savage),savage,1,0,0,0,1,0,0
+Eden's Gate: Sepulture (Savage),savage,1,0,0,0,1,0,0
+Eden's Promise: Anamorphosis (Savage),savage,1,0,0,0,1,0,0
+Eden's Promise: Eternity (Savage),savage,1,0,0,0,1,0,0
+Eden's Promise: Litany (Savage),savage,1,0,0,0,1,0,0
+Eden's Promise: Umbra (Savage),savage,1,0,0,0,1,0,0
+Eden's Verse: Fulmination (Savage),savage,1,0,0,0,1,0,0
+Eden's Verse: Furor (Savage),savage,1,0,0,0,1,0,0
+Eden's Verse: Iconoclasm (Savage),savage,1,0,0,0,1,0,0
+Eden's Verse: Refulgence (Savage),savage,1,0,0,0,1,0,0
+Sigmascape V1.0 (Savage),savage,1,0,0,0,1,0,0
+Sigmascape V2.0 (Savage),savage,1,0,0,0,1,0,0
+Sigmascape V3.0 (Savage),savage,1,0,0,0,1,0,0
+Sigmascape V4.0 (Savage),savage,1,0,0,0,1,0,0
+The Second Coil of Bahamut (Savage) - Turn 1,savage,1,0,0,0,1,0,0
+The Second Coil of Bahamut (Savage) - Turn 2,savage,1,0,0,0,1,0,0
+The Second Coil of Bahamut (Savage) - Turn 3,savage,1,0,0,0,1,0,0
+The Second Coil of Bahamut (Savage) - Turn 4,savage,1,0,0,0,1,0,0
+Dancing Mad (Ultimate),ultimate,0,1,0,0,1,0,0
+Dragonsong's Reprise (Ultimate),ultimate,0,1,0,0,1,0,0
+Futures Rewritten (Ultimate),ultimate,0,1,0,0,1,0,0
+The Epic of Alexander (Ultimate),ultimate,0,1,0,0,1,0,0
+The Omega Protocol (Ultimate),ultimate,0,1,0,0,1,0,0
+The Unending Coil of Bahamut (Ultimate),ultimate,0,1,0,0,1,0,0
+The Weapon's Refrain (Ultimate),ultimate,0,1,0,0,1,0,0
+Shinryu's Domain (Unreal),unreal,0,0,1,0,1,0,0
+Tsukuyomi's Pain (Unreal),unreal,0,0,1,0,1,0,0

@@ -10,13 +10,13 @@ config {
 }
 
 SELECT
-  ${ffxiv.playerHash("creator", "creator_server")}     AS player_hash,
-  ANY_VALUE(creator)                                   AS creator_name,
-  ANY_VALUE(creator_server)                            AS creator_server,
-  ${ffxiv.playerInitials("creator")}                   AS creator_initials,
-  MIN(scraped_at)                                      AS first_seen,
-  MAX(scraped_at)                                      AS last_seen,
-  COUNT(DISTINCT listing_id)                           AS n_listings
+  ${ffxiv.playerHash("creator", "creator_server")} AS player_hash,
+  ANY_VALUE(creator) AS creator_name,
+  ANY_VALUE(creator_server) AS creator_server,
+  ${ffxiv.playerInitials("creator")} AS creator_initials,
+  MIN(scraped_at) AS first_seen,
+  MAX(scraped_at) AS last_seen,
+  COUNT(DISTINCT listing_id) AS n_listings
 FROM ${ref("raw_listings")}
 WHERE creator IS NOT NULL
 GROUP BY player_hash, creator_initials

@@ -1,0 +1,71 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_supply_demand_gap",
+  description: "Matchmaking friction by content_category x region x datacenter x post-hour. Crosses the SUPPLY of parties (session count) against unmet DEMAND for players (seats that never filled) to surface cells where people want groups but seats go empty - the case for a matchmaking nudge, or a signal that a datacenter is thinning out. Sourced from fct_listing_lifecycle, bucketed on when the listing was POSTED (session_start). seats_unfilled is recruiter-aware ((slots_total-1) - last_slots_filled), so a filled party contributes 0. fill_rate_pct and gap_index are over RESOLVED sessions (filled + expired_partial), excluding flash and still-live. Maps to a weekday-agnostic region x DC x hour heatmap keyed on gap_index.",
+  bigquery: {
+    clusterBy: ["pf_region", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "content_category", "post_hour"],
+    rowConditions: [
+      "sessions > 0",
+      "fill_rate_pct IS NULL OR fill_rate_pct BETWEEN 0 AND 100",
+      "avg_seats_unfilled IS NULL OR avg_seats_unfilled >= 0",
+      "gap_index IS NULL OR gap_index >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_high_end: "1 if high-end content",
+    post_hour: "Hour of day (UTC) the listing was posted (0-23)",
+    sessions: "Listing sessions posted in this bucket (party supply)",
+    sessions_resolved: "Resolved sessions (filled + expired_partial); excludes flash and still-live",
+    fill_rate_pct: "sessions that reached full / sessions_resolved * 100",
+    avg_seats_unfilled: "Mean (slots_total-1) - last_slots_filled over resolved sessions (unmet demand per party; filled = 0)",
+    avg_open_tank: "Mean open tank slots across the session's life",
+    avg_open_healer: "Mean open healer slots across the session's life",
+    avg_open_dps: "Mean open dps slots across the session's life",
+    gap_index: "avg_seats_unfilled * (1 - fill_rate_pct/100): high = many parties, seats staying empty"
+  }
+}
+
+WITH observed AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    content_category,
+    is_high_end,
+    EXTRACT(HOUR FROM session_start) AS post_hour,
+    outcome,
+    reached_full,
+    GREATEST(slots_total - 1 - last_slots_filled, 0) AS seats_unfilled,
+    avg_open_tank,
+    avg_open_healer,
+    avg_open_dps
+  FROM ${ref("fct_listing_lifecycle")}
+  WHERE pf_region IS NOT NULL
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  is_high_end,
+  post_hour,
+  COUNT(*) AS sessions,
+  COUNTIF(outcome IN ('filled', 'expired_partial')) AS sessions_resolved,
+  ROUND(SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct,
+  ROUND(AVG(IF(outcome IN ('filled', 'expired_partial'), seats_unfilled, NULL)), 2) AS avg_seats_unfilled,
+  ROUND(AVG(avg_open_tank), 2) AS avg_open_tank,
+  ROUND(AVG(avg_open_healer), 2) AS avg_open_healer,
+  ROUND(AVG(avg_open_dps), 2) AS avg_open_dps,
+  ROUND(
+    AVG(IF(outcome IN ('filled', 'expired_partial'), seats_unfilled, NULL))
+    * (1 - SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(outcome IN ('filled', 'expired_partial')))),
+    2
+  ) AS gap_index
+FROM observed
+GROUP BY 1, 2, 3, 4, 5

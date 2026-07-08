@@ -2,11 +2,15 @@ REGION  ?= us-central1
 PROJECT ?= ff14-pf-data
 REPO    := $(REGION)-docker.pkg.dev/$(PROJECT)/ff14-pf-scraper
 
+# schema for the curated duties reference (reference/duties.csv -> bronze.raw_duties_reference)
+DUTIES_SCHEMA := duty:STRING,content_category:STRING,is_savage:INTEGER,is_ultimate:INTEGER,is_unreal:INTEGER,is_extreme:INTEGER,is_high_end:INTEGER,is_alliance_raid:INTEGER,is_chaotic_alliance:INTEGER
+
 .PHONY: help \
         build-scraper build-loader build-duty build-dataform build-all \
         push-scraper push-loader push-duty push-dataform push-all \
         release-scraper release-loader release-duty release-dataform \
-        deploy run-scraper run-loader run-duty run-dataform-runner dataform-run docker-auth
+        deploy run-scraper run-loader run-duty run-dataform-runner dataform-run dataform-refresh docker-auth \
+        upload-duties refresh-dim-duties load-duties load-worlds
 
 help:
 	@echo "Build:    build-scraper build-loader build-duty build-dataform build-all"
@@ -15,6 +19,8 @@ help:
 	@echo "Run jobs: run-scraper run-loader run-duty run-dataform-runner"
 	@echo "Infra:    deploy        (terraform apply)"
 	@echo "Dataform: dataform-run  (local compile + run)  |  run-dataform-runner (Cloud Run job)"
+	@echo "Duties:   upload-duties (csv -> warehouse)  refresh-dim-duties (-> dim_duties)  load-duties (both)"
+	@echo "Worlds:   load-worlds   (worlds.csv -> dim_worlds)"
 	@echo "Auth:     docker-auth   (one-time Artifact Registry docker login)"
 
 docker-auth:
@@ -63,6 +69,23 @@ deploy:
 	cd terraform && terraform apply
 
 dataform-run:
-	cd dataform && dataform compile && dataform run 
+	cd dataform && dataform compile && dataform run
 dataform-refresh:
 	cd dataform && dataform compile && dataform run --full-refresh
+
+# --- reference data loads (edit the CSV, then run these; see reference/README.md) ---
+# 1. upload reference/duties.csv into the warehouse (native bronze.raw_duties_reference; no raw-bucket write)
+upload-duties:
+	bq load --replace --source_format=CSV --skip_leading_rows=1 --schema="$(DUTIES_SCHEMA)" $(PROJECT):bronze.raw_duties_reference reference/duties.csv
+
+# 2. feed the uploaded reference into dim_duties (rebuild it + everything downstream)
+refresh-dim-duties:
+	cd dataform && dataform run --full-refresh --actions dim_duties --include-dependents
+
+# do both: upload the CSV and feed it into dim_duties
+load-duties: upload-duties refresh-dim-duties
+
+# worlds.csv -> GCS-backed bronze.raw_worlds external table, then rebuild dim_worlds
+load-worlds:
+	gsutil cp reference/worlds.csv gs://ff14-pf-data-raw/worlds_data/worlds.csv
+	bq query --nouse_legacy_sql --project_id=$(PROJECT) "$$(cat reference/load_dim_worlds.sql)"

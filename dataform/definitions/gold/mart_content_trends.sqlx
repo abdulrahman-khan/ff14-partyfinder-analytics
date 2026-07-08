@@ -16,7 +16,7 @@ config {
   columns: {
     pf_region: "Region the listing was posted in",
     duty: "Duty name",
-    content_category: "savage / ultimate / extreme / unreal / other",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
     is_high_end: "1 if high-end content",
     reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
     listings: "Listing sessions for this duty/region/week",
@@ -34,9 +34,9 @@ WITH weekly AS (
     l.content_category,
     l.is_high_end,
     dd.ffxiv_reset_week_start AS reset_week,
-    COUNT(*)                  AS listings
+    COUNT(*) AS listings
   FROM ${ref("fct_listing_lifecycle")} l
-  JOIN ${ref("dim_date")}    dd ON dd.date = l.first_seen_date
+  JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
   LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
   WHERE l.pf_region IS NOT NULL
   GROUP BY 1, 2, 3, 4, 5
@@ -57,7 +57,7 @@ SELECT
   reset_week,
   listings,
   listings_prev_week,
-  listings - listings_prev_week                                              AS wow_delta,
+  listings - listings_prev_week AS wow_delta,
   ROUND(SAFE_DIVIDE(listings - listings_prev_week, listings_prev_week) * 100, 1) AS wow_pct_change,
-  RANK() OVER (PARTITION BY pf_region, reset_week ORDER BY listings DESC)     AS rank_in_region_week
+  RANK() OVER (PARTITION BY pf_region, reset_week ORDER BY listings DESC) AS rank_in_region_week
 FROM with_prev

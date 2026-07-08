@@ -23,20 +23,20 @@ config {
 
 WITH bounds AS (
   SELECT
-    MIN(scraped_date)                            AS min_date,
+    MIN(scraped_date) AS min_date,
     DATE_ADD(MAX(scraped_date), INTERVAL 30 DAY) AS max_date
   FROM ${ref("fct_listings")}
 )
 
 SELECT
-  d                                                            AS date,
-  EXTRACT(YEAR    FROM d)                                      AS year,
-  EXTRACT(MONTH   FROM d)                                      AS month,
-  EXTRACT(DAY     FROM d)                                      AS day,
-  EXTRACT(DAYOFWEEK FROM d)                                    AS day_of_week,
-  FORMAT_DATE('%A', d)                                         AS day_name,
-  EXTRACT(DAYOFWEEK FROM d) IN (1, 7)                          AS is_weekend,
-  EXTRACT(ISOWEEK FROM d)                                      AS iso_week,
-  EXTRACT(ISOYEAR FROM d)                                      AS iso_year,
+  d AS date,
+  EXTRACT(YEAR FROM d) AS year,
+  EXTRACT(MONTH FROM d) AS month,
+  EXTRACT(DAY FROM d) AS day,
+  EXTRACT(DAYOFWEEK FROM d) AS day_of_week,
+  FORMAT_DATE('%A', d) AS day_name,
+  EXTRACT(DAYOFWEEK FROM d) IN (1, 7) AS is_weekend,
+  EXTRACT(ISOWEEK FROM d) AS iso_week,
+  EXTRACT(ISOYEAR FROM d) AS iso_year,
   DATE(${ffxiv.resetWeekStart("TIMESTAMP_ADD(TIMESTAMP(d), INTERVAL 12 HOUR)")}) AS ffxiv_reset_week_start
 FROM bounds, UNNEST(GENERATE_DATE_ARRAY(bounds.min_date, bounds.max_date)) AS d

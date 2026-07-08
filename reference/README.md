@@ -9,6 +9,19 @@ World → datacenter → region lookup for every FFXIV world. Source for `silver
 which `fct_listings` joins against to attach DC/region to both the PF world and the creator
 world. Update this file when Square Enix adds worlds or data centers.
 
+## `duties.csv`
+
+Curated duty classification: one row per known duty with `content_category` and the difficulty
+flags. Source for `bronze.raw_duties_reference`, which `dim_duties` treats as authoritative,
+falling back to a name-suffix parse only for scraped duties not yet listed here. Reclassifying a
+duty is a CSV edit, no code change. Loaded into a native table, not managed by Dataform or Terraform.
+
+Run this whenever `duties.csv` changes:
+
+```bash
+make load-duties
+```
+
 ## `load_dim_worlds.sql`
 
 Rebuilds `silver.dim_worlds` from the `bronze.raw_worlds` external table (which points at

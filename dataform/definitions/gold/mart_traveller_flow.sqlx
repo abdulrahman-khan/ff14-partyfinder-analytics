@@ -35,15 +35,15 @@ WITH s AS (
   WHERE pf_region IS NOT NULL
     AND pf_datacenter IS NOT NULL
     AND creator_datacenter IS NOT NULL
-    AND pf_region = creator_region        -- intra-region DC travel only
+    AND pf_region = creator_region  -- intra-region DC travel only
 ),
 
 host AS (
   SELECT
     region,
-    pf_datacenter           AS datacenter,
-    COUNTIF(is_local = 0)   AS inbound,
-    COUNTIF(is_local = 1)   AS local_listings
+    pf_datacenter AS datacenter,
+    COUNTIF(is_local = 0) AS inbound,
+    COUNTIF(is_local = 1) AS local_listings
   FROM s
   GROUP BY 1, 2
 ),
@@ -51,18 +51,18 @@ host AS (
 origin AS (
   SELECT
     region,
-    creator_datacenter      AS datacenter,
-    COUNTIF(is_local = 0)   AS outbound
+    creator_datacenter AS datacenter,
+    COUNTIF(is_local = 0) AS outbound
   FROM s
   GROUP BY 1, 2
 )
 
 SELECT
-  COALESCE(h.region, o.region)         AS region,
+  COALESCE(h.region, o.region) AS region,
   COALESCE(h.datacenter, o.datacenter) AS datacenter,
-  COALESCE(h.inbound, 0)               AS inbound,
-  COALESCE(o.outbound, 0)              AS outbound,
-  COALESCE(h.local_listings, 0)        AS local_listings,
+  COALESCE(h.inbound, 0) AS inbound,
+  COALESCE(o.outbound, 0) AS outbound,
+  COALESCE(h.local_listings, 0) AS local_listings,
   COALESCE(h.inbound, 0) - COALESCE(o.outbound, 0) AS net_flow
 FROM host h
 FULL OUTER JOIN origin o

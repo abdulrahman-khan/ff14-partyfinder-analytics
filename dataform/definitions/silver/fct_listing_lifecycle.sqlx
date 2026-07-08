@@ -3,10 +3,10 @@ config {
   schema: "silver",
   name: "fct_listing_lifecycle",
   uniqueKey: ["listing_id", "session_start"],
-  description: "Accumulating-snapshot fact: ONE ROW PER LISTING SESSION. The 15-min snapshot stream in fct_listings is sessionized via gap-and-islands (a gap > 30 min starts a new session, so an identical re-post weeks later is its own row). Derives lifetime, time-to-fill, fill outcome, and role bottleneck. CAVEATS: time-to-fill resolution is +/-15 min (scrape cadence); a mid-life description edit changes listing_id so sessionization handles re-posts but not edits; single-snapshot 'flash' sessions are right-censored (instant-fill vs instant-expire are indistinguishable); 'filled' means the last observed state reached slots_total.",
+  description: "Accumulating-snapshot fact: ONE ROW PER LISTING SESSION. The 15-min snapshot stream in fct_listings is sessionized via gap-and-islands (a gap > 30 min starts a new session, so an identical re-post weeks later is its own row). Derives lifetime, time-to-fill, fill outcome, and role bottleneck. FILL INFERENCE: a full party (e.g. 8/8) is NEVER scrapeable because the listing delists the instant it completes - slots_filled includes the recruiter and caps at slots_total-1 (7/8). So 'filled' is INFERRED: a multi-snapshot session last seen one short (slots_total-1) that has since disappeared from PF (last_seen precedes the data frontier by > SESSION_GAP_MIN) is treated as filled; time_to_full_min is then its observed lifetime (fill happened just after the last scrape). Sessions still live at the frontier are outcome='live' (unresolved) and get finalized on a later incremental run. CAVEATS: time-to-fill resolution is +/-15 min; a mid-life description edit changes listing_id (sessionization handles re-posts, not edits); single-snapshot 'flash' sessions stay right-censored (post time unknown, fill un-inferable); MULTI-PARTY content (slots_total > 8: alliance raids, Chaotic, PvP custom) only ever exposes the recruiter's own 8-slot party in slot_details while slots_total is a variable alliance-wide counter, so per-party fill is unobservable - these are outcome='multiparty' and excluded from all fill metrics (still counted for activity/volume).",
   bigquery: {
     partitionBy: "first_seen_date",
-    clusterBy: ["duty_key", "pf_world_key"],
+    clusterBy: ["pf_region", "duty_key", "pf_world_key"],
     updatePartitionFilter: "first_seen_date >= DATE_SUB(CURRENT_DATE(), INTERVAL 4 DAY)"
   },
   assertions: {
@@ -27,6 +27,7 @@ WITH snapshots AS (
     listing_id, scraped_at, duty_key, pf_world_key, creator_world_key,
     pf_datacenter, pf_region, creator_datacenter, creator_region,
     is_cross, is_traveller, is_voyager,
+    is_practice, is_duty_complete,
     min_ilvl, slots_filled, slots_total,
     open_tank_slots, open_healer_slots, open_dps_slots
   FROM ${ref("fct_listings")}
@@ -63,91 +64,119 @@ sessioned AS (
   )
 ),
 
+-- global data frontier: the latest scrape we hold. A session whose last snapshot predates
+-- (frontier - SESSION_GAP_MIN) has been observed to vanish from PF = delisted. We use the
+-- DATA frontier, not CURRENT_TIMESTAMP(), because the loader is manual and data can lag hours.
+frontier AS (
+  SELECT MAX(scraped_at) AS max_scrape FROM snapshots
+),
+
 agg AS (
   SELECT
     listing_id,
     session_start,
-    DATE(session_start)                                          AS first_seen_date,
-    MAX(scraped_at)                                              AS last_seen,
-    TIMESTAMP_DIFF(MAX(scraped_at), session_start, MINUTE)       AS observed_lifetime_min,
-    COUNT(*)                                                     AS n_snapshots,
+    DATE(session_start) AS first_seen_date,
+    MAX(scraped_at) AS last_seen,
+    TIMESTAMP_DIFF(MAX(scraped_at), session_start, MINUTE) AS observed_lifetime_min,
+    COUNT(*) AS n_snapshots,
 
-    ANY_VALUE(duty_key)          AS duty_key,
-    ANY_VALUE(pf_world_key)      AS pf_world_key,
+    ANY_VALUE(duty_key) AS duty_key,
+    ANY_VALUE(pf_world_key) AS pf_world_key,
     ANY_VALUE(creator_world_key) AS creator_world_key,
-    ANY_VALUE(pf_datacenter)      AS pf_datacenter,
-    ANY_VALUE(pf_region)          AS pf_region,
+    ANY_VALUE(pf_datacenter) AS pf_datacenter,
+    ANY_VALUE(pf_region) AS pf_region,
     ANY_VALUE(creator_datacenter) AS creator_datacenter,
-    ANY_VALUE(creator_region)     AS creator_region,
-    MAX(is_cross)                AS is_cross,
-    MAX(is_traveller)            AS is_traveller,
-    MAX(is_voyager)              AS is_voyager,
-    MAX(min_ilvl)                AS min_ilvl,
+    ANY_VALUE(creator_region) AS creator_region,
+    MAX(is_cross) AS is_cross,
+    MAX(is_traveller) AS is_traveller,
+    MAX(is_voyager) AS is_voyager,
+    -- intent tags are set at post time; MAX = ever tagged during the session
+    MAX(is_practice) AS is_practice,
+    MAX(is_duty_complete) AS is_duty_complete,
+    MAX(min_ilvl) AS min_ilvl,
 
-    MAX(slots_total)             AS slots_total,
-    MAX(IF(scraped_at = session_start, slots_filled, NULL))     AS initial_slots_filled,
-    MAX(slots_filled)            AS max_slots_filled,
-    MAX(IF(slots_filled >= slots_total, 1, 0))                  AS reached_full,
-    TIMESTAMP_DIFF(
-      MIN(IF(slots_filled >= slots_total, scraped_at, NULL)),
-      session_start, MINUTE
-    )                            AS time_to_full_min,
+    MAX(slots_total) AS slots_total,
+    MAX(IF(scraped_at = session_start, slots_filled, NULL)) AS initial_slots_filled,
+    MAX(slots_filled) AS max_slots_filled,
+    -- slots_filled at the last scrape before the listing vanished; drives fill inference
+    ARRAY_AGG(slots_filled ORDER BY scraped_at DESC LIMIT 1)[SAFE_OFFSET(0)] AS last_slots_filled,
 
-    AVG(open_tank_slots)         AS avg_open_tank,
-    AVG(open_healer_slots)       AS avg_open_healer,
-    AVG(open_dps_slots)          AS avg_open_dps
+    AVG(open_tank_slots) AS avg_open_tank,
+    AVG(open_healer_slots) AS avg_open_healer,
+    AVG(open_dps_slots) AS avg_open_dps
   FROM sessioned
   GROUP BY listing_id, session_start
+),
+
+-- fill inference: is_delisted = we have observed the listing disappear from PF.
+-- reached_full = multi-snapshot, delisted, last seen one short of full (recruiter + full party).
+scored AS (
+  SELECT
+    agg.*,
+    (agg.last_seen < TIMESTAMP_SUB(f.max_scrape, INTERVAL ${ffxiv.SESSION_GAP_MIN} MINUTE)) AS is_delisted,
+    CASE
+      WHEN agg.slots_total <= 8   -- fill is only observable for single parties (see multiparty note)
+       AND agg.n_snapshots > 1
+       AND agg.last_seen < TIMESTAMP_SUB(f.max_scrape, INTERVAL ${ffxiv.SESSION_GAP_MIN} MINUTE)
+       AND agg.last_slots_filled >= agg.slots_total - 1
+      THEN 1 ELSE 0
+    END AS reached_full
+  FROM agg
+  CROSS JOIN frontier f
 )
 
 SELECT
-  TO_HEX(MD5(CONCAT(agg.listing_id, '|', CAST(agg.session_start AS STRING)))) AS lifecycle_key,
-  agg.listing_id,
-  agg.session_start,
-  agg.first_seen_date,
-  agg.last_seen,
-  agg.observed_lifetime_min,
-  agg.n_snapshots,
+  TO_HEX(MD5(CONCAT(s.listing_id, '|', CAST(s.session_start AS STRING)))) AS lifecycle_key,
+  s.listing_id,
+  s.session_start,
+  s.first_seen_date,
+  s.last_seen,
+  s.observed_lifetime_min,
+  s.n_snapshots,
 
-  agg.duty_key,
-  COALESCE(d.is_high_end, 0)                       AS is_high_end,
-  COALESCE(d.content_category, 'other')            AS content_category,
-  agg.pf_world_key,
-  agg.creator_world_key,
-  agg.pf_datacenter,
-  agg.pf_region,
-  agg.creator_datacenter,
-  agg.creator_region,
-  agg.is_cross,
-  agg.is_traveller,
-  agg.is_voyager,
-  agg.min_ilvl,
+  s.duty_key,
+  COALESCE(d.is_high_end, 0) AS is_high_end,
+  COALESCE(d.content_category, 'other') AS content_category,
+  s.pf_world_key,
+  s.creator_world_key,
+  s.pf_datacenter,
+  s.pf_region,
+  s.creator_datacenter,
+  s.creator_region,
+  s.is_cross,
+  s.is_traveller,
+  s.is_voyager,
+  s.is_practice,
+  s.is_duty_complete,
+  s.min_ilvl,
 
-  agg.slots_total,
-  agg.initial_slots_filled,
-  agg.max_slots_filled,
-  agg.reached_full,
-  agg.time_to_full_min,
-  SAFE_DIVIDE(agg.max_slots_filled, agg.slots_total) * 100      AS fill_rate_pct,
+  s.slots_total,
+  s.initial_slots_filled,
+  s.max_slots_filled,
+  s.last_slots_filled,
+  s.reached_full,
+  -- fill lands just after the last one-short scrape, so lifetime approximates time to full
+  IF(s.reached_full = 1, s.observed_lifetime_min, NULL) AS time_to_full_min,
+  -- relative to fillable slots (slots_total-1 drops the recruiter), so one-short reads as 100%
+  LEAST(SAFE_DIVIDE(s.max_slots_filled, NULLIF(s.slots_total - 1, 0)) * 100, 100) AS fill_rate_pct,
 
-  agg.avg_open_tank,
-  agg.avg_open_healer,
-  agg.avg_open_dps,
+  s.avg_open_tank,
+  s.avg_open_healer,
+  s.avg_open_dps,
   CASE
-    WHEN agg.avg_open_tank   >= agg.avg_open_healer
-     AND agg.avg_open_tank   >= agg.avg_open_dps
-     AND agg.avg_open_tank   > 0 THEN 'tank'
-    WHEN agg.avg_open_healer >= agg.avg_open_dps
-     AND agg.avg_open_healer > 0 THEN 'healer'
-    WHEN agg.avg_open_dps    > 0 THEN 'dps'
+    WHEN s.avg_open_tank >= s.avg_open_healer AND s.avg_open_tank >= s.avg_open_dps AND s.avg_open_tank > 0 THEN 'tank'
+    WHEN s.avg_open_healer >= s.avg_open_dps AND s.avg_open_healer > 0 THEN 'healer'
+    WHEN s.avg_open_dps > 0 THEN 'dps'
     ELSE 'none'
-  END                                              AS bottleneck_role,
+  END AS bottleneck_role,
 
-  CASE WHEN agg.reached_full = 0 OR agg.n_snapshots = 1 THEN 1 ELSE 0 END AS is_right_censored,
+  IF(s.is_delisted, 0, 1) AS is_right_censored,
   CASE
-    WHEN agg.n_snapshots = 1   THEN 'flash'
-    WHEN agg.reached_full = 1  THEN 'filled'
+    WHEN s.slots_total > 8 THEN 'multiparty'
+    WHEN s.n_snapshots = 1 THEN 'flash'
+    WHEN NOT s.is_delisted THEN 'live'
+    WHEN s.reached_full = 1 THEN 'filled'
     ELSE 'expired_partial'
-  END                                              AS outcome
-FROM agg
-LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = agg.duty_key
+  END AS outcome
+FROM scored s
+LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = s.duty_key

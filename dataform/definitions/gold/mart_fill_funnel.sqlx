@@ -1,0 +1,58 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_fill_funnel",
+  description: "Outcome funnel by content_category x region x datacenter. For every listing session, outcome is one of filled / expired_partial / flash / live / multiparty; this mart reports the share of each. It is the missing DENOMINATOR for the rest of the gold layer: a fast median_time_to_fill only means something once you know what fraction of listings fill. Sourced from fct_listing_lifecycle (one row per session). 'filled' is inferred from delisting (last seen one short of full, then vanished). CAVEATS: 'flash' sessions are single-snapshot and right-censored (instant-fill vs instant-expire indistinguishable) - an ambiguity band, not a failure rate; 'live' sessions are still active at the data frontier (outcome not yet resolved) and get finalized on a later incremental run; 'multiparty' sessions (slots_total > 8: alliance/PvP) expose only 8 slots so per-party fill is unobservable and excluded from fill rates. Maps to a stacked/funnel bar per content x region.",
+  bigquery: {
+    clusterBy: ["pf_region", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "content_category"],
+    rowConditions: [
+      "sessions > 0",
+      "filled + expired_partial + flash + live + multiparty = sessions",
+      "filled_pct BETWEEN 0 AND 100",
+      "expired_partial_pct BETWEEN 0 AND 100",
+      "flash_pct BETWEEN 0 AND 100",
+      "live_pct BETWEEN 0 AND 100",
+      "multiparty_pct BETWEEN 0 AND 100"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_high_end: "1 if high-end content",
+    sessions: "Total listing sessions in this bucket",
+    filled: "Sessions inferred filled (delisted from one short of full)",
+    expired_partial: "Resolved multi-snapshot sessions that never reached full",
+    flash: "Single-snapshot (right-censored) sessions",
+    live: "Still active at the data frontier - outcome not yet resolved",
+    multiparty: "slots_total > 8 (alliance/PvP) - fill unobservable, excluded from fill rates",
+    filled_pct: "filled / sessions * 100",
+    expired_partial_pct: "expired_partial / sessions * 100",
+    flash_pct: "flash / sessions * 100 (ambiguity band, see description)",
+    live_pct: "live / sessions * 100 (unresolved at frontier)",
+    multiparty_pct: "multiparty / sessions * 100 (fill-untrackable content)"
+  }
+}
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  is_high_end,
+  COUNT(*) AS sessions,
+  COUNTIF(outcome = 'filled') AS filled,
+  COUNTIF(outcome = 'expired_partial') AS expired_partial,
+  COUNTIF(outcome = 'flash') AS flash,
+  COUNTIF(outcome = 'live') AS live,
+  COUNTIF(outcome = 'multiparty') AS multiparty,
+  ROUND(COUNTIF(outcome = 'filled') / COUNT(*) * 100, 1) AS filled_pct,
+  ROUND(COUNTIF(outcome = 'expired_partial') / COUNT(*) * 100, 1) AS expired_partial_pct,
+  ROUND(COUNTIF(outcome = 'flash') / COUNT(*) * 100, 1) AS flash_pct,
+  ROUND(COUNTIF(outcome = 'live') / COUNT(*) * 100, 1) AS live_pct,
+  ROUND(COUNTIF(outcome = 'multiparty') / COUNT(*) * 100, 1) AS multiparty_pct
+FROM ${ref("fct_listing_lifecycle")}
+WHERE pf_region IS NOT NULL
+GROUP BY 1, 2, 3, 4
