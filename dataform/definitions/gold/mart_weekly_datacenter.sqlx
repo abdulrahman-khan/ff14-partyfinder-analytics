@@ -1,0 +1,64 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_weekly_datacenter",
+  description: "Week-over-week listing volume by data center x content category x FFXIV reset week. Adds the datacenter grain that mart_content_trends (region-level) lacks, so the dashboard can scope 'listings this week / last week' to a single data center. Reset week is anchored on Tuesday 08:00 UTC via dim_date. Maps to per-DC KPI cards and weekly trend lines.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "reset_week"],
+    rowConditions: [
+      "listings > 0",
+      "listings_prev_week IS NULL OR listings_prev_week >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Data center the listing was posted on",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_high_end: "1 if high-end content",
+    reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
+    listings: "Listing sessions for this DC/category/week",
+    listings_prev_week: "Same metric one reset week earlier (LAG)",
+    wow_delta: "listings - listings_prev_week",
+    wow_pct_change: "Percent change vs previous week"
+  }
+}
+
+WITH weekly AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    l.content_category,
+    l.is_high_end,
+    dd.ffxiv_reset_week_start AS reset_week,
+    COUNT(*) AS listings
+  FROM ${ref("fct_listing_lifecycle")} l
+  JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  WHERE l.pf_region IS NOT NULL
+    AND l.pf_datacenter IS NOT NULL
+  GROUP BY 1, 2, 3, 4, 5
+),
+
+with_prev AS (
+  SELECT
+    *,
+    LAG(listings) OVER (
+      PARTITION BY pf_region, pf_datacenter, content_category
+      ORDER BY reset_week
+    ) AS listings_prev_week
+  FROM weekly
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  is_high_end,
+  reset_week,
+  listings,
+  listings_prev_week,
+  listings - listings_prev_week AS wow_delta,
+  ROUND(SAFE_DIVIDE(listings - listings_prev_week, listings_prev_week) * 100, 1) AS wow_pct_change
+FROM with_prev
