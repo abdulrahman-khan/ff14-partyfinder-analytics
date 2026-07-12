@@ -1,0 +1,88 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_duty_trends",
+  description: "HERO TREND MART. Date-filterable, DC-primary popularity + fill + speed by duty x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). ONE date-range filter serves both 'recent (past few weeks)' and 'full patch-history summary' - the dashboard filters on reset_week and re-aggregates in pandas. Datacenter is the grain because a Party Finder listing is exclusive to the DC it is hosted on (a JP listing never appears in NA Crystal; NA Aether never appears in NA Crystal); region is a rollup, recovered by summing DCs. Supersedes mart_content_trends (region-only, volume-only). Sourced from fct_listing_lifecycle (one row per session). Fill is INFERRED from delisting (see fct_listing_lifecycle): fill_rate_pct is over RESOLVED sessions (filled + expired_partial); time-to-fill percentiles are over filled sessions only; multiparty/flash/live are excluded from fill metrics but counted in listings. Maps to per-DC trend lines and ranked bars.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "duty", "reset_week"],
+    rowConditions: [
+      "listings > 0",
+      "listings_prev_week IS NULL OR listings_prev_week >= 0",
+      "fill_rate_pct IS NULL OR fill_rate_pct BETWEEN 0 AND 100",
+      "median_time_to_fill_min IS NULL OR median_time_to_fill_min >= 0",
+      "p90_time_to_fill_min IS NULL OR p90_time_to_fill_min >= 0"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in (rollup dimension)",
+    pf_datacenter: "Data center the listing was posted on (primary grain - PF isolation boundary)",
+    duty: "Duty name",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_high_end: "1 if high-end content",
+    reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
+    listings: "Listing sessions for this duty/DC/week",
+    listings_prev_week: "Same metric one reset week earlier (LAG)",
+    wow_delta: "listings - listings_prev_week",
+    wow_pct_change: "Percent change vs previous week",
+    rank_in_dc_week: "Rank of this duty by listings within its DC and week (1 = most listed)",
+    sessions_resolved: "Resolved sessions (filled + expired_partial); excludes flash, live, multiparty",
+    sessions_filled: "Sessions inferred to have filled (delisted from one short of full)",
+    fill_rate_pct: "sessions_filled / sessions_resolved * 100",
+    median_time_to_fill_min: "Median minutes from post to full over filled sessions (APPROX p50)",
+    p90_time_to_fill_min: "90th percentile minutes to full over filled sessions"
+  }
+}
+
+WITH weekly AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    d.duty,
+    l.content_category,
+    l.is_high_end,
+    dd.ffxiv_reset_week_start AS reset_week,
+    COUNT(*) AS listings,
+    COUNTIF(l.outcome IN ('filled', 'expired_partial')) AS sessions_resolved,
+    COUNTIF(l.reached_full = 1) AS sessions_filled,
+    ROUND(SAFE_DIVIDE(COUNTIF(l.reached_full = 1), COUNTIF(l.outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct,
+    APPROX_QUANTILES(IF(l.reached_full = 1, l.time_to_full_min, NULL), 100)[OFFSET(50)] AS median_time_to_fill_min,
+    APPROX_QUANTILES(IF(l.reached_full = 1, l.time_to_full_min, NULL), 100)[OFFSET(90)] AS p90_time_to_fill_min
+  FROM ${ref("fct_listing_lifecycle")} l
+  JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+  WHERE l.pf_region IS NOT NULL
+    AND l.pf_datacenter IS NOT NULL
+  GROUP BY 1, 2, 3, 4, 5, 6
+),
+
+with_prev AS (
+  SELECT
+    *,
+    LAG(listings) OVER (
+      PARTITION BY pf_region, pf_datacenter, duty
+      ORDER BY reset_week
+    ) AS listings_prev_week
+  FROM weekly
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  duty,
+  content_category,
+  is_high_end,
+  reset_week,
+  listings,
+  listings_prev_week,
+  listings - listings_prev_week AS wow_delta,
+  ROUND(SAFE_DIVIDE(listings - listings_prev_week, listings_prev_week) * 100, 1) AS wow_pct_change,
+  RANK() OVER (PARTITION BY pf_region, pf_datacenter, reset_week ORDER BY listings DESC) AS rank_in_dc_week,
+  sessions_resolved,
+  sessions_filled,
+  fill_rate_pct,
+  median_time_to_fill_min,
+  p90_time_to_fill_min
+FROM with_prev

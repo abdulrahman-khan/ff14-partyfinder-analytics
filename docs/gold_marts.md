@@ -1,6 +1,6 @@
 # Gold Marts & the Lifecycle Model
 
-The gold layer ships **pre-aggregated, chart-ready marts** — each one is already at the exact grain a dashboard tile needs, and each surfaces a *rate / duration / delta / flow*, not a bare count. Region is a dimension in every mart (no hardcoded NA).
+The gold layer ships **pre-aggregated, chart-ready marts** — each one is already at the exact grain a dashboard tile needs, and each surfaces a *rate / duration / delta*, not a bare count. Region is a dimension in every mart (no hardcoded NA).
 
 Everything hangs off one keystone in silver: **`fct_listing_lifecycle`**.
 
@@ -26,31 +26,73 @@ Everything hangs off one keystone in silver: **`fct_listing_lifecycle`**.
 
 ## Mart catalog
 
+The layer is deliberately lean — six marts across two families plus one denominator. Every mart
+earns its place against a distinct analytical question; anything strictly derivable from another
+mart (e.g. the old `mart_weekly_datacenter`, a content rollup of `mart_duty_trends`) was retired.
+**Datacenter is the primary scope**: a Party Finder listing is exclusive to the DC it is hosted
+on (a JP listing never appears in NA Crystal; NA Aether never appears in NA Crystal), so every
+mart carries `pf_datacenter` and region is only a rollup dimension.
+
+### Pattern family — recent rolling window, intraday ("when should I post *now*?")
+
+These answer intraday timing/role questions and are restricted to the last `PATTERN_WINDOW_WEEKS`
+(8) reset weeks, anchored on the **data frontier** (`MAX(first_seen_date)`, not `CURRENT_DATE()`,
+since the loader is manual). The window keeps intraday patterns tied to the current tier instead
+of smearing across patch boundaries. Each carries `window_start_date` / `window_end_date` so a
+dashboard can label the window. They are **not** date-filterable — use the trend family for that.
+
 | Mart | Grain | Headline metric(s) | Question it answers | Viz |
 |---|---|---|---|---|
 | `mart_time_to_fill` ⭐ | duty × region × DC × weekday × hour | `median_time_to_fill_min`, `p90`, `fill_rate_pct` | "When should I post to fill fast?" | weekday×hour heatmap |
-| `mart_role_demand` | content_category × region × DC × hour | open tank/healer/dps **share %**, `most_common_bottleneck` | "Which role is the bottleneck?" | stacked bar |
+| `mart_role_demand` | content_category × region × DC × hour | open tank/healer/dps **share %**, `most_common_bottleneck` | "Which role is the bottleneck right now?" | stacked bar |
 | `mart_activity_heatmap` | region × DC × weekday × hour | `listings_posted`, `avg_lifetime_min`, `fill_rate_pct` | "When is PF busiest on my DC?" | weekday×hour heatmap |
-| `mart_content_trends` | duty × region × reset_week | `wow_pct_change`, `rank_in_region_week` | "What content is hot / fading?" | ranked bars / trend |
-| `mart_traveller_flow` | region × datacenter | `inbound`, `outbound`, `net_flow` | "Which DCs import/export players?" | diverging bar / sankey |
+
+### Trend family — date-filterable, DC-primary, `reset_week` grain ("trends through patch history")
+
+These carry an FFXIV `reset_week` (Tuesday 08:00 UTC via `dim_date`) so **one date-range filter**
+serves both "recent (past few weeks)" and "full patch-history summary" — the dashboard filters on
+`reset_week` and re-aggregates in pandas.
+
+| Mart | Grain | Headline metric(s) | Question it answers | Viz |
+|---|---|---|---|---|
+| `mart_duty_trends` ⭐ | duty × region × DC × reset_week | `listings`, `wow_pct_change`, `rank_in_dc_week`, `fill_rate_pct`, `median_time_to_fill_min` | "How have popularity, fill rate and speed for this duty on my DC moved patch to patch?" | trend lines / ranked bars |
+| `mart_role_trends` | content_category × region × DC × reset_week | open tank/healer/dps **share %**, `most_common_bottleneck` | "Has the tank shortage on my DC eased or worsened over patches?" | role-share-over-time |
+
+### Denominator mart
+
+| Mart | Grain | Headline metric(s) | Question it answers | Viz |
+|---|---|---|---|---|
 | `mart_fill_funnel` | content × region × DC | `filled_pct`, `expired_partial_pct`, `flash_pct` | "What share of listings ever fill?" | stacked / funnel bar |
-| `mart_supply_demand_gap` | content × region × DC × post-hour | `gap_index`, `avg_seats_unfilled`, `fill_rate_pct` | "Where do seats stay empty (matchmaking gaps)?" | region×DC×hour heatmap |
-| `mart_prog_vs_clear` | duty × region × intent | `fill_rate_pct`, `median_time_to_fill_min` | "Do prog parties fill slower than reclears?" | grouped bars (prog vs clear) |
 
 Notes:
 - All marts source from `fct_listing_lifecycle` (one row per session → no scrape double-counting).
-- `mart_content_trends` still counts listings, but the *insight* is the week-over-week change and rank — the count is just the input.
-- `mart_fill_funnel` is the *denominator* for the rest of the layer: a fast `median_time_to_fill` only means something once you know `filled_pct`. `flash_pct` is an ambiguity band (single-snapshot, right-censored), not a failure rate.
-- `mart_supply_demand_gap` crosses party *supply* (session count) against unmet *demand* (`avg_seats_unfilled`); `gap_index = avg_seats_unfilled * (1 - fill_rate_pct/100)` is high where many parties post but seats stay empty.
-- `mart_prog_vs_clear` derives `intent` from the `[Practice]` / `[Duty Complete]` description tags, now carried on `fct_listing_lifecycle` as `is_practice` / `is_duty_complete` (`MAX` over the session).
-- `mart_traveller_flow` is scoped to intra-region DC travel (`creator_region = pf_region`), matching how FFXIV data-center travel works; within a region `net_flow` sums to ~0.
-- `mart_activity_heatmap` measures **posting activity** from the session table (cheap), not concurrent-live snapshots — it replaces the old `mart_activity_hour_datacenter`.
+- `mart_duty_trends` is the **hero trend mart**; it supersedes the retired `mart_content_trends`
+  (region-only, volume-only) and `mart_weekly_datacenter` (content rollup) — both are recovered by
+  summing/grouping DCs and duties in pandas. It counts listings, but the *insight* is
+  `wow_pct_change`, `rank_in_dc_week`, and how `fill_rate_pct` / time-to-fill move across patches.
+- `mart_role_trends` is the date-filterable sibling of `mart_role_demand`. Open-slot share is
+  *unmet role demand*: the role with the largest share is the bottleneck, and its inverse (the
+  role whose slots fill fastest, usually DPS) is the read for "what role people play most".
+- `mart_fill_funnel` is the *denominator* for the fill/time-to-fill marts: a fast
+  `median_time_to_fill` only means something once you know `filled_pct`. `flash_pct` is an
+  ambiguity band (single-snapshot, right-censored), not a failure rate.
+- `mart_activity_heatmap` measures **posting activity** from the session table (cheap), not
+  concurrent-live snapshots — it replaces the old `mart_activity_hour_datacenter`.
+- **Retired** (2026-07): `mart_weekly_datacenter` (derivable from `mart_duty_trends`),
+  `mart_supply_demand_gap` (composite gap index overlapping fill-rate + role signals),
+  `mart_prog_vs_clear` (niche intent split), and `mart_traveller_flow` (DC travel, off the core
+  when/what/roles/fill question set). Removed to keep the layer lean; the lifecycle facts still
+  carry the underlying columns if any are ever revived.
 
 ---
 
 ## Shared logic — `dataform/includes/ffxiv.js`
 
 - `SESSION_GAP_MIN` — sessionization threshold (30).
+- `PATTERN_WINDOW_WEEKS` (8) / `patternWindowCutoff(lifecycleRef)` — the recent-window bound for the
+  pattern-family marts. `patternWindowCutoff` returns `DATE_SUB(MAX(first_seen_date) - N weeks)`
+  anchored on the data frontier, not `CURRENT_DATE()`, so a lagging manual load never empties the
+  window.
 - `resetWeekStart(tsExpr)` / `resetWeekBounds(period)` — FFXIV reset-week math (Tuesday 08:00 UTC), centralized instead of copy-pasted across marts. Used by `dim_date` and available to any model.
 
 ## Data quality

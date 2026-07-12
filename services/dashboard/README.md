@@ -9,10 +9,11 @@ There is no per-interaction BigQuery traffic, so viewer activity cannot run up q
 Hosted free on [Streamlit Community Cloud](https://streamlit.io/cloud); one query per mart per cold
 start reads only public aggregate data.
 
-The main page (`streamlit_app.py`) has region / data center filters, DC-scoped KPIs, and an activity
-heatmap; a second page (`pages/1_FAQ.py`) covers freshness and anonymity. Shared BigQuery loading
-lives in `data.py`. The look is documented in [STYLING.md](STYLING.md) (Eorzean Night theme) - read it
-before restyling the dashboard.
+The main page (`streamlit_app.py`) puts global filters (Region, Data Center, trend date-range) in the
+sidebar and organizes the marts into five tabs - **Overview**, **When to Post**, **Duty Trends**,
+**Roles**, and **Fill Outcomes** - one analytical question each. A second page (`pages/1_FAQ.py`)
+covers freshness and anonymity. Shared BigQuery loading lives in `data.py`. The look is documented in
+[STYLING.md](STYLING.md) (Eorzean Night theme) - read it before restyling the dashboard.
 
 ## Run locally
 

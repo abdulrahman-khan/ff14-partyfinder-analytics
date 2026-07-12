@@ -99,25 +99,34 @@ executes as its own Cloud Run job (`dataform-runner`), not via the GCP Dataform 
   in dim_worlds.
 
 ### Gold (`dataform/definitions/gold/`) — pre-aggregated, chart-ready marts
-Region is a dimension, never hardcoded. All marts source from `fct_listing_lifecycle`.
-- `mart_time_to_fill` — **hero**; median/p90 time-to-fill + fill rate by duty × region × DC
+**Datacenter is the primary scope** (a PF listing is exclusive to its DC); region is a rollup
+dimension, never hardcoded. All marts source from `fct_listing_lifecycle`. The layer is lean —
+six marts across a *pattern* family (recent rolling window, intraday), a *trend* family
+(date-filterable, `reset_week` grain), and one denominator — see [`gold_marts.md`](gold_marts.md).
+
+*Pattern family (recent `PATTERN_WINDOW_WEEKS`-week window, anchored on the data frontier):*
+- `mart_time_to_fill` — **hero pattern**; median/p90 time-to-fill + fill rate by duty × region × DC
   × weekday × hour.
 - `mart_role_demand` — open-slot shares + bottleneck role by content × region × DC × hour.
 - `mart_activity_heatmap` — posting activity by region × DC × weekday × hour.
-- `mart_content_trends` — week-over-week listing volume + `wow_pct_change` + weekly rank per
-  duty/region.
-- `mart_traveller_flow` — per-DC inbound/outbound/net travel flow.
+
+*Trend family (date-filterable, `reset_week` grain, DC-primary):*
+- `mart_duty_trends` — **hero trend**; listings + `wow_pct_change` + `rank_in_dc_week` + fill rate +
+  time-to-fill by duty × region × DC × reset_week.
+- `mart_role_trends` — open-slot shares + bottleneck role by content × region × DC × reset_week.
+
+*Denominator:*
 - `mart_fill_funnel` — outcome shares (`filled` / `expired_partial` / `flash` / `live`) by content ×
   region × DC; the denominator behind every fill/time-to-fill mart (`filled` is inferred from
   delisting — see the fill-inference design decision below).
-- `mart_supply_demand_gap` — `gap_index` (unmet seats × miss rate) by content × region × DC ×
-  post-hour; surfaces where seats stay empty.
-- `mart_prog_vs_clear` — fill rate + time-to-fill split by `[Practice]` vs `[Duty Complete]`
-  (reclear) intent per duty × region.
+
+Retired to keep the layer lean: `mart_content_trends` and `mart_weekly_datacenter` (derivable from
+`mart_duty_trends`), `mart_supply_demand_gap`, `mart_prog_vs_clear`, and `mart_traveller_flow`.
 
 Full mart catalog, grains, and the lifecycle model are in [`gold_marts.md`](gold_marts.md).
 Shared logic (`resetWeekBounds` / `resetWeekStart` macros, `SESSION_GAP_MIN`,
-`playerHash` / `playerInitials`) lives in `dataform/includes/ffxiv.js`.
+`PATTERN_WINDOW_WEEKS` / `patternWindowCutoff`, `playerHash` / `playerInitials`) lives in
+`dataform/includes/ffxiv.js`.
 
 ---
 

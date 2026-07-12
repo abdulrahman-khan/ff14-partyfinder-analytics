@@ -57,8 +57,8 @@ The pipeline follows a standard medallion architecture on Google Cloud:
 3. **Silver** - listings are sessionized into a lifecycle fact table (a party's
    snapshots stitched into one "session"), and creator identities are replaced
    with pseudonymous hashes and initials.
-4. **Gold** - small, pre-aggregated marts (fill funnel, activity heatmap, weekly
-   trends) that this dashboard reads once per load and shapes in-memory.
+4. **Gold** - small, pre-aggregated marts (fill funnel, activity heatmap, duty &
+   role trends) that this dashboard reads once per load and shapes in-memory.
 
 **Stack:** Python on Cloud Run, BigQuery (medallion architecture), Dataform for
 SQL transformations, and Terraform for infrastructure.
@@ -85,6 +85,6 @@ st.markdown(
     """
 Coverage depends on what appears in the scraped listings - typically the NA, EU,
 JP, and OCE regions and their data centers. Use the **Region** and **Data center**
-filters on the main page to scope the view; it defaults to **NA / Aether**.
+filters in the **sidebar** to scope the view; it defaults to **NA / Aether**.
 """
 )

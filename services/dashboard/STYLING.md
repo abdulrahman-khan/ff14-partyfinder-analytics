@@ -29,21 +29,25 @@ The finer polish (metric cards, gold KPI values, link color) is injected via `th
 Always wrap a chart in `theme.style_chart(chart)` before `st.altair_chart(...)`.
 It applies a transparent background and muted axes/legend so charts sit cleanly on the dark page.
 
-- Sequential intensity (heatmaps): use `theme.HEATMAP_SCHEME` (`inferno`). `magma` is an acceptable alternative in the same family.
+- Sequential intensity (heatmaps): use `theme.HEATMAP_SCHEME` (`inferno`). `magma` is an acceptable alternative in the same family. For a "lower is better" metric (e.g. time-to-fill) reverse the scale (`alt.Scale(scheme=HEATMAP_SCHEME, reverse=True)`) so short waits read as hot.
 - Categorical bars: default to `BLUE`. Use `GOLD` to highlight a called-out subset (e.g. current-tier savage duties).
+- Roles (tank / healer / DPS): use `theme.ROLE_COLORS` (blue / green / red) - a documented semantic exception to the blue/gold rule. Fill outcomes: use `theme.OUTCOME_COLORS`.
 - Never use Altair/Vega default colors directly - they clash with the dark theme.
+- Prefer `width="stretch"` on `st.altair_chart` (the replacement for the deprecated `use_container_width=True`).
 
 ## Layout conventions
 
 - Wide layout (`layout="wide"`) on every page.
-- Order on the main page: title + intro -> filter row -> KPI row -> heatmap -> paired charts.
-- Filters are `st.selectbox`es driven off the actual mart data (not `reference/worlds.csv`), and default to **NA / Aether** via `data.DEFAULT_REGION` / `DEFAULT_DATACENTER`.
-- KPIs use `st.metric` in a 4-column row; values render gold via the injected CSS.
-- Use `st.divider()` between major sections and `st.caption(...)` for scope notes under each chart.
+- **Sidebar = global filters only**, in a fixed order: brand -> Region -> Data center -> trend date-range -> freshness/FAQ note. Filters are `st.selectbox`es driven off the actual mart data (not `reference/worlds.csv`) and default to **NA / Aether** via `data.DEFAULT_REGION` / `DEFAULT_DATACENTER`. Every interactive widget carries a unique `key=` (tabs render all widgets each run, so duplicate labels collide).
+- **Main page = tabs** (`st.tabs`), one analytical question each: Overview -> When to Post -> Duty Trends -> Roles -> Fill Outcomes. Tabs are styled via `inject_css` (gold active underline).
+- KPIs use `st.metric` rows; values render gold via the injected CSS.
+- Use `st.subheader` + a one-line `st.caption(...)` scope note at the top of each tab section; `st.divider()` between sub-sections within a tab.
 - Guard every chart against empty filtered frames with an `st.info(...)` fallback.
+- Pattern marts (`mart_time_to_fill`, `mart_role_demand`, `mart_activity_heatmap`) cover only a recent window - label them with their `window_start_date` / `window_end_date`.
 
 ## Files
 
 - `.streamlit/config.toml` - Streamlit theme (background, primary, text, font).
-- `theme.py` - palette constants, `style_chart`, `inject_css`, `CURRENT_SAVAGE_TIER`.
+- `theme.py` - palette constants, `ROLE_COLORS`, `OUTCOME_COLORS`, `style_chart`, `inject_css` (Inter font + tab/sidebar CSS), `CURRENT_SAVAGE_TIER`.
 - `data.py` - shared BigQuery loading, `WEEKDAY_ORDER`, filter defaults.
+- `streamlit_app.py` - main page: sidebar filters + five tabs, one render function per tab.

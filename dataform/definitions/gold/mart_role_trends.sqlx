@@ -1,0 +1,78 @@
+config {
+  type: "table",
+  schema: "gold",
+  name: "mart_role_trends",
+  description: "Date-filterable, DC-primary role demand by content_category x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). The trend sibling of mart_role_demand (which is intraday, recent-window). ONE date-range filter serves both recent weeks and full patch history; the dashboard filters on reset_week and re-aggregates in pandas. Open-slot share is UNMET role demand for the week: the role with the highest open share is the bottleneck (hardest to recruit), while the role players bring most (usually DPS) has its slots fill fastest and rarely tops the share - so the modal bottleneck is the read for 'which role is scarce' and its inverse for 'what role people play most'. Datacenter is the grain because PF is DC-exclusive; region is a rollup. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a role-share-over-time / bottleneck trend chart.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "content_category", "reset_week"],
+    rowConditions: [
+      "sessions > 0",
+      "open_tank_share_pct IS NULL OR open_tank_share_pct BETWEEN 0 AND 100",
+      "open_healer_share_pct IS NULL OR open_healer_share_pct BETWEEN 0 AND 100",
+      "open_dps_share_pct IS NULL OR open_dps_share_pct BETWEEN 0 AND 100"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in (rollup dimension)",
+    pf_datacenter: "Data center the listing was posted on (primary grain - PF isolation boundary)",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    is_high_end: "1 if high-end content",
+    reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
+    sessions: "Listing sessions for this DC/category/week",
+    avg_open_tank: "Mean open tank slots per session",
+    avg_open_healer: "Mean open healer slots per session",
+    avg_open_dps: "Mean open DPS slots per session",
+    open_tank_share_pct: "Tank share of all open slots in this bucket",
+    open_healer_share_pct: "Healer share of all open slots",
+    open_dps_share_pct: "DPS share of all open slots",
+    bottleneck_tank: "Sessions where tank was the bottleneck role",
+    bottleneck_healer: "Sessions where healer was the bottleneck role",
+    bottleneck_dps: "Sessions where DPS was the bottleneck role",
+    most_common_bottleneck: "Modal bottleneck role for the bucket"
+  }
+}
+
+WITH base AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    l.content_category,
+    l.is_high_end,
+    dd.ffxiv_reset_week_start AS reset_week,
+    l.avg_open_tank,
+    l.avg_open_healer,
+    l.avg_open_dps,
+    l.bottleneck_role
+  FROM ${ref("fct_listing_lifecycle")} l
+  JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  WHERE l.pf_region IS NOT NULL
+    AND l.pf_datacenter IS NOT NULL
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  is_high_end,
+  reset_week,
+  COUNT(*) AS sessions,
+  ROUND(AVG(avg_open_tank), 2) AS avg_open_tank,
+  ROUND(AVG(avg_open_healer), 2) AS avg_open_healer,
+  ROUND(AVG(avg_open_dps), 2) AS avg_open_dps,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_tank), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_tank_share_pct,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_healer), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_healer_share_pct,
+  ROUND(SAFE_DIVIDE(SUM(avg_open_dps), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_dps_share_pct,
+  COUNTIF(bottleneck_role = 'tank') AS bottleneck_tank,
+  COUNTIF(bottleneck_role = 'healer') AS bottleneck_healer,
+  COUNTIF(bottleneck_role = 'dps') AS bottleneck_dps,
+  CASE
+    WHEN COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'healer')
+     AND COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'dps') THEN 'tank'
+    WHEN COUNTIF(bottleneck_role = 'healer') >= COUNTIF(bottleneck_role = 'dps') THEN 'healer'
+    ELSE 'dps'
+  END AS most_common_bottleneck
+FROM base
+GROUP BY 1, 2, 3, 4, 5

@@ -24,7 +24,6 @@ terraform/terraform.tfstate
 terraform/terraform.tfstate.backup
 terraform/*.tfvars
 
-
 # Dataform credentials
 dataform/.df-credentials.json
 
@@ -59,4 +58,6 @@ tools/xivpf.db
 
 
 CLAUDE.md
+QWEN.md
 .claude
+.qwen

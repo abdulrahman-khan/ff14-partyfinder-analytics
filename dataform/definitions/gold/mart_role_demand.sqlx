@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "mart_role_demand",
-  description: "Role bottleneck analysis by content_category x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck', and the bottleneck-role counts answer 'which role is hardest to fill'. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart.",
+  description: "PATTERN MART. Role bottleneck analysis by content_category x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck', and the bottleneck-role counts answer 'which role is hardest to fill'. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier, so intraday role demand reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. For date-filterable role trends across patch history use mart_role_trends. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart.",
   bigquery: {
     clusterBy: ["pf_region", "content_category"]
   },
@@ -31,11 +31,20 @@ config {
     bottleneck_tank: "Sessions where tank was the bottleneck role",
     bottleneck_healer: "Sessions where healer was the bottleneck role",
     bottleneck_dps: "Sessions where DPS was the bottleneck role",
-    most_common_bottleneck: "Modal bottleneck role for the bucket"
+    most_common_bottleneck: "Modal bottleneck role for the bucket",
+    window_start_date: "Start of the recent pattern window (data frontier - PATTERN_WINDOW_WEEKS)",
+    window_end_date: "End of the recent pattern window (data frontier = max first_seen_date)"
   }
 }
 
-WITH base AS (
+WITH win AS (
+  SELECT
+    MAX(first_seen_date) AS window_end_date,
+    DATE_SUB(MAX(first_seen_date), INTERVAL ${ffxiv.PATTERN_WINDOW_WEEKS} WEEK) AS window_start_date
+  FROM ${ref("fct_listing_lifecycle")}
+),
+
+base AS (
   SELECT
     pf_region,
     pf_datacenter,
@@ -48,29 +57,35 @@ WITH base AS (
     bottleneck_role
   FROM ${ref("fct_listing_lifecycle")}
   WHERE pf_region IS NOT NULL
+    AND first_seen_date >= ${ffxiv.patternWindowCutoff(ref("fct_listing_lifecycle"))}
+),
+
+agg AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    content_category,
+    is_high_end,
+    post_hour,
+    COUNT(*) AS sessions,
+    ROUND(AVG(avg_open_tank), 2) AS avg_open_tank,
+    ROUND(AVG(avg_open_healer), 2) AS avg_open_healer,
+    ROUND(AVG(avg_open_dps), 2) AS avg_open_dps,
+    ROUND(SAFE_DIVIDE(SUM(avg_open_tank), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_tank_share_pct,
+    ROUND(SAFE_DIVIDE(SUM(avg_open_healer), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_healer_share_pct,
+    ROUND(SAFE_DIVIDE(SUM(avg_open_dps), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_dps_share_pct,
+    COUNTIF(bottleneck_role = 'tank') AS bottleneck_tank,
+    COUNTIF(bottleneck_role = 'healer') AS bottleneck_healer,
+    COUNTIF(bottleneck_role = 'dps') AS bottleneck_dps,
+    CASE
+      WHEN COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'healer')
+       AND COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'dps') THEN 'tank'
+      WHEN COUNTIF(bottleneck_role = 'healer') >= COUNTIF(bottleneck_role = 'dps') THEN 'healer'
+      ELSE 'dps'
+    END AS most_common_bottleneck
+  FROM base
+  GROUP BY 1, 2, 3, 4, 5
 )
 
-SELECT
-  pf_region,
-  pf_datacenter,
-  content_category,
-  is_high_end,
-  post_hour,
-  COUNT(*) AS sessions,
-  ROUND(AVG(avg_open_tank), 2) AS avg_open_tank,
-  ROUND(AVG(avg_open_healer), 2) AS avg_open_healer,
-  ROUND(AVG(avg_open_dps), 2) AS avg_open_dps,
-  ROUND(SAFE_DIVIDE(SUM(avg_open_tank), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_tank_share_pct,
-  ROUND(SAFE_DIVIDE(SUM(avg_open_healer), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_healer_share_pct,
-  ROUND(SAFE_DIVIDE(SUM(avg_open_dps), SUM(avg_open_tank + avg_open_healer + avg_open_dps)) * 100, 1) AS open_dps_share_pct,
-  COUNTIF(bottleneck_role = 'tank') AS bottleneck_tank,
-  COUNTIF(bottleneck_role = 'healer') AS bottleneck_healer,
-  COUNTIF(bottleneck_role = 'dps') AS bottleneck_dps,
-  CASE
-    WHEN COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'healer')
-     AND COUNTIF(bottleneck_role = 'tank') >= COUNTIF(bottleneck_role = 'dps') THEN 'tank'
-    WHEN COUNTIF(bottleneck_role = 'healer') >= COUNTIF(bottleneck_role = 'dps') THEN 'healer'
-    ELSE 'dps'
-  END AS most_common_bottleneck
-FROM base
-GROUP BY 1, 2, 3, 4, 5
+SELECT agg.*, win.window_start_date, win.window_end_date
+FROM agg CROSS JOIN win

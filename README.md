@@ -102,8 +102,9 @@ Data is refined in three layers that separate raw capture from cleaning from bus
 | `mart_time_to_fill` | When should I post to fill my party fastest? |
 | `mart_role_demand` | Which role is the bottleneck right now? |
 | `mart_activity_heatmap` | When is Party Finder busiest on my data center? |
-| `mart_content_trends` | What content is trending up or fading week over week? |
-| `mart_traveller_flow` | Which data centers import vs. export players? |
+| `mart_duty_trends` | How have popularity, fill rate, and speed for a duty on my DC moved through patch history? |
+| `mart_role_trends` | Has the role bottleneck on my DC eased or worsened over patches? |
+| `mart_fill_funnel` | What share of listings ever fill (the denominator behind every fill metric)? |
 
 Full table grains, metrics, and the lifecycle model are documented in [docs/gold_marts.md](docs/gold_marts.md).
 

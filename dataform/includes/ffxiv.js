@@ -1,4 +1,12 @@
 const SESSION_GAP_MIN = 30; // Scrape cadence is 15m; 2 missed cycles = new session
+const PATTERN_WINDOW_WEEKS = 8; // intraday "when to post" patterns use only the recent window
+
+// Cutoff for recent-window pattern marts, anchored on the data frontier (max first_seen_date)
+// in fct_listing_lifecycle rather than CURRENT_DATE(), so a lagging manual load doesn't empty
+// the window. Pass the resolved ref("fct_listing_lifecycle") string.
+function patternWindowCutoff(lifecycleRef) {
+  return `DATE_SUB((SELECT MAX(first_seen_date) FROM ${lifecycleRef}), INTERVAL ${PATTERN_WINDOW_WEEKS} WEEK)`;
+}
 
 function resetWeekStart(tsExpr) {
   return `
@@ -41,6 +49,8 @@ function playerInitials(creatorExpr) {
 
 module.exports = {
   SESSION_GAP_MIN,
+  PATTERN_WINDOW_WEEKS,
+  patternWindowCutoff,
   resetWeekStart,
   resetWeekBounds,
   playerHash,

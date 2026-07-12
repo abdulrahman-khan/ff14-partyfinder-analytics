@@ -2,7 +2,7 @@ config {
   type: "table",
   schema: "gold",
   name: "mart_time_to_fill",
-  description: "HERO MART. Time-to-fill and fill rate by duty x region x datacenter x weekday x hour-of-day, bucketed on when the listing was POSTED (session_start). Sourced from fct_listing_lifecycle. Fill is INFERRED from delisting (see fct_listing_lifecycle): a session last seen one short of full that then vanished is 'filled'. Percentiles are over filled sessions; fill_rate_pct is over RESOLVED sessions (filled + expired_partial) so single-snapshot 'flash' and still-'live' sessions are excluded. Maps to a weekday x hour heatmap.",
+  description: "HERO PATTERN MART. Time-to-fill and fill rate by duty x region x datacenter x weekday x hour-of-day, bucketed on when the listing was POSTED (session_start). RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier (max first_seen_date), so intraday post-timing patterns reflect the current tier instead of smearing across patch boundaries; window_start_date/window_end_date carry the bounds. For date-filterable patch-history trends use mart_duty_trends. Sourced from fct_listing_lifecycle. Fill is INFERRED from delisting (see fct_listing_lifecycle): a session last seen one short of full that then vanished is 'filled'. Percentiles are over filled sessions; fill_rate_pct is over RESOLVED sessions (filled + expired_partial) so single-snapshot 'flash' and still-'live' sessions are excluded. Maps to a weekday x hour heatmap.",
   bigquery: {
     clusterBy: ["pf_region", "content_category"]
   },
@@ -15,6 +15,8 @@ config {
     ]
   },
   columns: {
+    window_start_date: "Start of the recent pattern window (data frontier - PATTERN_WINDOW_WEEKS)",
+    window_end_date: "End of the recent pattern window (data frontier = max first_seen_date)",
     pf_region: "Region the listing was posted in",
     pf_datacenter: "Datacenter the listing was posted on",
     duty: "Duty name",
@@ -34,7 +36,14 @@ config {
   }
 }
 
-WITH base AS (
+WITH win AS (
+  SELECT
+    MAX(first_seen_date) AS window_end_date,
+    DATE_SUB(MAX(first_seen_date), INTERVAL ${ffxiv.PATTERN_WINDOW_WEEKS} WEEK) AS window_start_date
+  FROM ${ref("fct_listing_lifecycle")}
+),
+
+base AS (
   SELECT
     l.pf_region,
     l.pf_datacenter,
@@ -53,24 +62,30 @@ WITH base AS (
   LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
   LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
   WHERE l.pf_region IS NOT NULL
+    AND l.first_seen_date >= ${ffxiv.patternWindowCutoff(ref("fct_listing_lifecycle"))}
+),
+
+agg AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    duty,
+    content_category,
+    is_high_end,
+    post_weekday,
+    day_name,
+    is_weekend,
+    post_hour,
+    COUNT(*) AS sessions,
+    COUNTIF(outcome IN ('filled', 'expired_partial')) AS sessions_resolved,
+    COUNTIF(reached_full = 1) AS sessions_filled,
+    ROUND(SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct,
+    APPROX_QUANTILES(ttf, 100)[OFFSET(50)] AS median_time_to_fill_min,
+    APPROX_QUANTILES(ttf, 100)[OFFSET(90)] AS p90_time_to_fill_min,
+    ROUND(AVG(ttf), 1) AS avg_time_to_fill_min
+  FROM base
+  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 )
 
-SELECT
-  pf_region,
-  pf_datacenter,
-  duty,
-  content_category,
-  is_high_end,
-  post_weekday,
-  day_name,
-  is_weekend,
-  post_hour,
-  COUNT(*) AS sessions,
-  COUNTIF(outcome IN ('filled', 'expired_partial')) AS sessions_resolved,
-  COUNTIF(reached_full = 1) AS sessions_filled,
-  ROUND(SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct,
-  APPROX_QUANTILES(ttf, 100)[OFFSET(50)] AS median_time_to_fill_min,
-  APPROX_QUANTILES(ttf, 100)[OFFSET(90)] AS p90_time_to_fill_min,
-  ROUND(AVG(ttf), 1) AS avg_time_to_fill_min
-FROM base
-GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
+SELECT agg.*, win.window_start_date, win.window_end_date
+FROM agg CROSS JOIN win
