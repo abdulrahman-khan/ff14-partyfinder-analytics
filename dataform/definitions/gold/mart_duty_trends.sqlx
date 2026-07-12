@@ -1,6 +1,7 @@
 config {
   type: "table",
   schema: "gold",
+  tags: ["gold"],
   name: "mart_duty_trends",
   description: "HERO TREND MART. Date-filterable, DC-primary popularity + fill + speed by duty x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). ONE date-range filter serves both 'recent (past few weeks)' and 'full patch-history summary' - the dashboard filters on reset_week and re-aggregates in pandas. Datacenter is the grain because a Party Finder listing is exclusive to the DC it is hosted on (a JP listing never appears in NA Crystal; NA Aether never appears in NA Crystal); region is a rollup, recovered by summing DCs. Supersedes mart_content_trends (region-only, volume-only). Sourced from fct_listing_lifecycle (one row per session). Fill is INFERRED from delisting (see fct_listing_lifecycle): fill_rate_pct is over RESOLVED sessions (filled + expired_partial); time-to-fill percentiles are over filled sessions only; multiparty/flash/live are excluded from fill metrics but counted in listings. Maps to per-DC trend lines and ranked bars.",
   bigquery: {

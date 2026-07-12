@@ -9,7 +9,7 @@ DUTIES_SCHEMA := duty:STRING,content_category:STRING,is_savage:INTEGER,is_ultima
         build-scraper build-loader build-duty build-dataform build-all \
         push-scraper push-loader push-duty push-dataform push-all \
         release-scraper release-loader release-duty release-dataform \
-        deploy run-scraper run-loader run-duty run-dataform-runner dataform-run dataform-refresh docker-auth \
+        deploy run-scraper run-loader run-duty run-dataform-runner dataform-run dataform-run-gold dataform-refresh docker-auth \
         upload-duties refresh-dim-duties load-duties load-worlds run-dashboard
 
 help:
@@ -18,7 +18,7 @@ help:
 	@echo "Release:  release-scraper release-loader release-duty release-dataform  (build + push + run)"
 	@echo "Run jobs: run-scraper run-loader run-duty run-dataform-runner"
 	@echo "Infra:    deploy        (terraform apply)"
-	@echo "Dataform: dataform-run  (local compile + run)  |  run-dataform-runner (Cloud Run job)"
+	@echo "Dataform: dataform-run (full compile + run) | dataform-run-gold (gold marts only, cheap) | run-dataform-runner (Cloud Run job)"
 	@echo "Duties:   upload-duties (csv -> warehouse)  refresh-dim-duties (-> dim_duties)  load-duties (both)"
 	@echo "Worlds:   load-worlds   (worlds.csv -> dim_worlds)"
 	@echo "Dashboard: run-dashboard (streamlit summary app, local)"
@@ -71,6 +71,10 @@ deploy:
 
 dataform-run:
 	cd dataform && dataform compile && dataform run
+# gold marts only (tag: gold) against existing silver - skips the pricey silver
+# rebuild and the silver freshness assertion. Use after gold-only edits.
+dataform-run-gold:
+	cd dataform && dataform compile && dataform run --tags gold
 dataform-refresh:
 	cd dataform && dataform compile && dataform run --full-refresh
 

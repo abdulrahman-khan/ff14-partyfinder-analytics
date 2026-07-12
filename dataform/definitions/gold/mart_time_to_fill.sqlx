@@ -1,6 +1,7 @@
 config {
   type: "table",
   schema: "gold",
+  tags: ["gold"],
   name: "mart_time_to_fill",
   description: "HERO PATTERN MART. Time-to-fill and fill rate by duty x region x datacenter x weekday x hour-of-day, bucketed on when the listing was POSTED (session_start). RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier (max first_seen_date), so intraday post-timing patterns reflect the current tier instead of smearing across patch boundaries; window_start_date/window_end_date carry the bounds. For date-filterable patch-history trends use mart_duty_trends. Sourced from fct_listing_lifecycle. Fill is INFERRED from delisting (see fct_listing_lifecycle): a session last seen one short of full that then vanished is 'filled'. Percentiles are over filled sessions; fill_rate_pct is over RESOLVED sessions (filled + expired_partial) so single-snapshot 'flash' and still-'live' sessions are excluded. Maps to a weekday x hour heatmap.",
   bigquery: {

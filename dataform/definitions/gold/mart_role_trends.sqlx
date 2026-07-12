@@ -1,6 +1,7 @@
 config {
   type: "table",
   schema: "gold",
+  tags: ["gold"],
   name: "mart_role_trends",
   description: "Date-filterable, DC-primary role demand by content_category x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). The trend sibling of mart_role_demand (which is intraday, recent-window). ONE date-range filter serves both recent weeks and full patch history; the dashboard filters on reset_week and re-aggregates in pandas. Open-slot share is UNMET role demand for the week: the role with the highest open share is the bottleneck (hardest to recruit), while the role players bring most (usually DPS) has its slots fill fastest and rarely tops the share - so the modal bottleneck is the read for 'which role is scarce' and its inverse for 'what role people play most'. Datacenter is the grain because PF is DC-exclusive; region is a rollup. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a role-share-over-time / bottleneck trend chart.",
   bigquery: {

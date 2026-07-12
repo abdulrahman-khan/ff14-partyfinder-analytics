@@ -1,6 +1,7 @@
 config {
   type: "table",
   schema: "gold",
+  tags: ["gold"],
   name: "mart_activity_heatmap",
   description: "PATTERN MART. Party Finder posting activity by region x datacenter x weekday x hour-of-day (UTC), bucketed on when listings were posted. Answers 'when is PF busiest on my DC'. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier (max first_seen_date), so the busy-hour pattern reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. For date-filterable weekly volume trends use mart_duty_trends. Sourced from fct_listing_lifecycle (one row per session), so it counts listings posted rather than raw scrape snapshots. Replaces mart_activity_hour_datacenter. Maps to a weekday x hour heatmap.",
   bigquery: {
