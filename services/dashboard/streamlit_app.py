@@ -15,6 +15,7 @@ import datetime as dt
 import altair as alt
 import pandas as pd
 import streamlit as st
+from streamlit_echarts import st_echarts
 
 from data import DEFAULT_DATACENTER, DEFAULT_REGION, WEEKDAY_ORDER, load
 from theme import (
@@ -24,6 +25,10 @@ from theme import (
     HEATMAP_SCHEME,
     OUTCOME_COLORS,
     ROLE_COLORS,
+    ACCENT_GREEN,
+    ACCENT_PURPLE,
+    ACCENT_RED,
+    ACCENT_BLUE,
     inject_css,
     style_chart,
 )
@@ -39,6 +44,11 @@ time_to_fill = load("mart_time_to_fill")
 role_demand = load("mart_role_demand")
 duty_trends = load("mart_duty_trends")
 role_trends = load("mart_role_trends")
+intent = load("mart_listing_intent")
+travel = load("mart_travel_demand")
+ilvl = load("mart_ilvl_gating")
+tags = load("mart_listing_tags")
+saturation = load("mart_market_saturation")
 
 # reset_week arrives as a DATE; normalize to Timestamp for filtering and sorting
 for _df in (duty_trends, role_trends):
@@ -91,6 +101,7 @@ def render_overview(funnel_dc, heatmap_dc, duty_dc, datacenter):
         if not by_hour.empty:
             busiest = f"{int(by_hour.idxmax()):02d}:00 UTC"
 
+    # KPI row — styled cards via injected CSS (gold values, panel bg, border)
     c1, c2, c3, c4 = st.columns(4)
     c1.metric("Total listings", f"{total_sessions:,}")
     c2.metric(last_label, f"{last_listings:,}", delta=None if last_delta is None else f"{last_delta:+,}")
@@ -133,7 +144,7 @@ def render_overview(funnel_dc, heatmap_dc, duty_dc, datacenter):
     if by_cat.empty:
         st.info("No listings for this data center yet.")
     else:
-        chart = (
+        bars = (
             alt.Chart(by_cat)
             .mark_bar(color=BLUE)
             .encode(
@@ -144,9 +155,16 @@ def render_overview(funnel_dc, heatmap_dc, duty_dc, datacenter):
                     alt.Tooltip("sessions:Q", title="Sessions", format=","),
                 ],
             )
-            .properties(height=320)
         )
-        st.altair_chart(style_chart(chart), width="stretch")
+        labels = alt.Chart(by_cat).mark_text(
+            align="left",
+            baseline="middle",
+            dx=5,
+            fontSize=11,
+            color="#E6E6E6",
+        ).encode(text=alt.Text("sessions:Q", format=","))
+        chart_with_labels = bars + labels
+        st.altair_chart(style_chart(chart_with_labels), width="stretch")
 
 
 # ------------------------------------------------------------- Tab: When to Post
@@ -211,6 +229,7 @@ def render_timing(ttf_dc, datacenter):
     else:
         k3.metric("Best time to post", "-", f"needs {MIN_SAMPLE}+ filled")
 
+    # Altair heatmap (single metric, colour-coded)
     if metric == "Fill rate":
         color = alt.Color("fill_rate_pct:Q", title="Fill %", scale=alt.Scale(scheme=HEATMAP_SCHEME))
         value_tip = alt.Tooltip("fill_rate_pct:Q", title="Fill rate", format=".0f")
@@ -240,6 +259,54 @@ def render_timing(ttf_dc, datacenter):
         "Time-to-fill is a session-weighted mean; fill/expiry are inferred from delisting - see the "
         "FAQ. Empty cells had no listings in the recent window."
     )
+
+    st.divider()
+    st.markdown("**Time-to-fill distribution**")
+    st.caption("Histogram buckets of fill speed for the selected duty/content type.")
+    # Build TTF distribution from the aggregated data
+    ttf_df = cat_df if duty == "All duties" else cat_df[cat_df["duty"] == duty]
+    if ttf_df.empty:
+        st.info("No data for this selection.")
+    else:
+        ttf_dist = ttf_df.agg(
+            lt_15=("ttf_lt_15", "sum"),
+            t_15_30=("ttf_15_30", "sum"),
+            t_30_60=("ttf_30_60", "sum"),
+            t_60_120=("ttf_60_120", "sum"),
+            gt_120=("ttf_gt_120", "sum"),
+            censored=("censored_pct", "first"),
+        )
+        total_filled = int(ttf_dist["lt_15"] + ttf_dist["t_15_30"] + ttf_dist["t_30_60"] + ttf_dist["t_60_120"] + ttf_dist["gt_120"])
+        if total_filled == 0:
+            st.info("No filled sessions in this selection.")
+        else:
+            dist_long = pd.DataFrame({
+                "bucket": ["<15m", "15-30m", "30-60m", "60-120m", ">120m"],
+                "count": [ttf_dist["lt_15"], ttf_dist["t_15_30"], ttf_dist["t_30_60"], ttf_dist["t_60_120"], ttf_dist["gt_120"]],
+            })
+            dist_long["pct"] = (dist_long["count"] / total_filled * 100).round(1)
+            bucket_colors = [ACCENT_GREEN, ACCENT_GREEN, ACCENT_BLUE, ACCENT_RED, ACCENT_RED]
+            chart = (
+                alt.Chart(dist_long)
+                .mark_bar()
+                .encode(
+                    x=alt.X("bucket:N", title="Time-to-fill"),
+                    y=alt.Y("count:Q", title="Filled sessions"),
+                    color=alt.Color(
+                        "bucket:N",
+                        scale=alt.Scale(domain=dist_long["bucket"].tolist(), range=bucket_colors),
+                        legend=None,
+                    ),
+                    tooltip=[
+                        alt.Tooltip("bucket:N", title="Bucket"),
+                        alt.Tooltip("count:Q", title="Count", format=","),
+                        alt.Tooltip("pct:Q", title="Share", format=".1f"),
+                    ],
+                )
+                .properties(height=220)
+            )
+            st.altair_chart(style_chart(chart), width="stretch")
+            st.caption(f"Censored (live/flash) share: {ttf_dist['censored']:.0f}%")
 
 
 # -------------------------------------------------------------- Tab: Duty Trends
@@ -312,10 +379,66 @@ def render_duty_trends(duty_range, datacenter, has_range):
             st.altair_chart(style_chart(chart), width="stretch")
 
     st.divider()
+    st.markdown("**Volume trend with anomaly detection**")
+    st.caption(
+        "Trailing 4-week rolling average smooths week-to-week noise. "
+        "Anomaly flag (red dots) when volume deviates ≥2σ from the rolling average."
+    )
+    vol = duty_range[duty_range["listings"] > 0].copy()
+    if vol.empty:
+        st.info("No volume data in this range.")
+    else:
+        vol["anomaly"] = vol["is_volume_anomaly"].fillna(False)
+        # Base line chart (all weeks)
+        base_line = (
+            alt.Chart(vol)
+            .mark_line(point=True, color=BLUE, strokeWidth=2)
+            .encode(
+                x=alt.X("reset_week:T", title="Reset week"),
+                y=alt.Y("listings:Q", title="Listings"),
+                tooltip=[
+                    alt.Tooltip("reset_week:T", title="Week"),
+                    alt.Tooltip("listings:Q", title="Listings", format=","),
+                    alt.Tooltip("rolling_avg_listings_4wk:Q", title="4wk avg", format=".0f"),
+                    alt.Tooltip("listings_zscore:Q", title="Z-score", format=".2f"),
+                ],
+            )
+        )
+        # Rolling average line
+        roll_line = (
+            alt.Chart(vol)
+            .mark_line(point=True, color=ACCENT_PURPLE, strokeWidth=2, strokeDash=[6, 4])
+            .encode(
+                x=alt.X("reset_week:T", title="Reset week"),
+                y=alt.Y("rolling_avg_listings_4wk:Q", title="Listings"),
+                tooltip=[
+                    alt.Tooltip("reset_week:T", title="Week"),
+                    alt.Tooltip("rolling_avg_listings_4wk:Q", title="4wk rolling avg", format=".0f"),
+                ],
+            )
+        )
+        # Anomaly markers
+        anomaly_pts = (
+            alt.Chart(vol[vol["anomaly"]])
+            .mark_circle(color=ACCENT_RED, size=120)
+            .encode(
+                x=alt.X("reset_week:T", title="Reset week"),
+                y=alt.Y("listings:Q", title="Listings"),
+                tooltip=[
+                    alt.Tooltip("reset_week:T", title="Week"),
+                    alt.Tooltip("listings:Q", title="Listings", format=","),
+                    alt.Tooltip("listings_zscore:Q", title="Z-score", format=".2f"),
+                ],
+            )
+        )
+        st.altair_chart(style_chart(base_line + roll_line + anomaly_pts), width="stretch")
+
+    st.divider()
     st.markdown("**Duty detail: time-to-fill and fill rate over time**")
     duty_opts = duty_range.groupby("duty")["listings"].sum().sort_values(ascending=False).index.tolist()
     sel = st.selectbox("Duty", duty_opts, key="dt_duty")
     series = duty_range[duty_range["duty"] == sel].sort_values("reset_week")
+
     d1, d2 = st.columns(2)
     with d1:
         chart = (
@@ -396,6 +519,15 @@ def render_roles(rd_dc, rt_range, datacenter, has_range):
         "DPS": cat_dc["avg_open_dps"].mul(cat_dc["sessions"]).sum(),
     }
     total_open = sum(pooled.values()) or 1
+
+    # Bottleneck summary text
+    bottleneck_role = max(pooled, key=pooled.get)
+    bottleneck_pct = pooled[bottleneck_role] / total_open * 100
+    st.info(
+        f"**{bottleneck_role}** is the bottleneck for **{bottleneck_pct:.0f}%** of open slots "
+        f"in {cat} on {datacenter}."
+    )
+
     k1, k2, k3 = st.columns(3)
     for col, role in zip((k1, k2, k3), ("Tank", "Healer", "DPS")):
         col.metric(f"{role} open share", f"{pooled[role] / total_open * 100:.0f}%")
@@ -494,6 +626,56 @@ def render_outcomes(funnel_dc, datacenter):
     long["outcome"] = long["outcome"].map(label_map)
 
     order = list(OUTCOME_COLORS)
+
+    # --- ECharts Sankey diagram ---
+    st.markdown("**Outcome flow**")
+    categories = [{"name": o} for o in order]
+    links = []
+    source_cat = datacenter  # each category is a source node
+    for _, row in long.iterrows():
+        links.append({
+            "source": row["content_category"],
+            "target": row["outcome"],
+            "value": int(row["count"]),
+        })
+
+    sankey_chart = {
+        "tooltip": {"trigger": "item", "formatter": "{b} → {c}: {d}%"},
+        "series": [{
+            "type": "sankey",
+            "layout": "none",
+            "emphasis": {"focus": "adjacency"},
+            "lineStyle": {"color": "source", "curveness": 0.5},
+            "itemStyle": {"borderWidth": 0},
+            "label": {"color": "#E6E6E6"},
+            "nodeAlign": "left",
+            "levels": [
+                {
+                    "depth": 0,
+                    "itemStyle": {"color": BLUE},
+                    "lineStyle": {"color": "source", "opacity": 0.6},
+                },
+                {
+                    "depth": 1,
+                    "itemStyle": {
+                        "color": [OUTCOME_COLORS[o] for o in order],
+                    },
+                    "lineStyle": {"color": "target", "opacity": 0.3},
+                },
+            ],
+            "data": [
+                *categories,
+                *[{"name": o, "itemStyle": {"color": OUTCOME_COLORS[o]}} for o in order],
+            ],
+            "links": links,
+        }],
+    }
+    st_echarts(sankey_chart, height=340)
+
+    st.divider()
+
+    # --- Stacked bar fallback (precise values) ---
+    st.markdown("**Precise breakdown**")
     long["outcome_order"] = long["outcome"].map({o: i for i, o in enumerate(order)})
     chart = (
         alt.Chart(long)
@@ -516,6 +698,420 @@ def render_outcomes(funnel_dc, datacenter):
             ],
         )
         .properties(height=360)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+
+# ------------------------------------------------------- Tab: Intent & Travel
+
+
+def render_intent_travel(intent_dc, travel_dc, datacenter):
+    st.subheader("High-end listing intent")
+    st.caption(
+        "Splits high-end listings into practice, reclear-farm, and blind-prog buckets. "
+        f"{_window_caption(intent_dc)}"
+    )
+    if intent_dc.empty:
+        st.info("No high-end intent data for this data center yet.")
+        return
+
+    cats = sorted(intent_dc["content_category"].dropna().unique().tolist())
+    cat = st.selectbox("Content type", cats, index=_pick(cats, "savage"), key="intent_cat")
+    cat_df = intent_dc[intent_dc["content_category"] == cat]
+
+    # KPI cards
+    total = int(cat_df["sessions"].sum())
+    practice = int(cat_df["practice"].sum())
+    reclear = int(cat_df["reclear_farm"].sum())
+    blind = int(cat_df["blind_prog"].sum())
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Practice", f"{practice:,}", f"{practice/total*100:.0f}%" if total else "-")
+    c2.metric("Reclear-farm", f"{reclear:,}", f"{reclear/total*100:.0f}%" if total else "-")
+    c3.metric("Blind-prog", f"{blind:,}", f"{blind/total*100:.0f}%" if total else "-")
+
+    st.divider()
+    st.markdown("**Fill rate by intent**")
+    fill_by_intent = cat_df[cat_df["fill_rate_pct"].notna()].sort_values("sessions", ascending=False)
+    if fill_by_intent.empty:
+        st.info("No fill data for this content type.")
+    else:
+        chart = (
+            alt.Chart(fill_by_intent)
+            .mark_bar()
+            .encode(
+                x=alt.X("intent:N", title="Intent"),
+                y=alt.Y("fill_rate_pct:Q", title="Fill rate (%)", scale=alt.Scale(domain=[0, 100])),
+                color=alt.Color(
+                    "intent:N",
+                    scale=alt.Scale(
+                        domain=["practice", "reclear_farm", "blind_prog"],
+                        range=[ACCENT_PURPLE, ACCENT_GREEN, ACCENT_BLUE],
+                    ),
+                ),
+                tooltip=[
+                    alt.Tooltip("intent:N", title="Intent"),
+                    alt.Tooltip("fill_rate_pct:Q", title="Fill rate", format=".1f"),
+                    alt.Tooltip("sessions:Q", title="Sessions", format=","),
+                    alt.Tooltip("median_time_to_fill_min:Q", title="Median TTF (min)", format=".0f"),
+                ],
+            )
+            .properties(height=260)
+        )
+        st.altair_chart(style_chart(chart), width="stretch")
+
+    st.divider()
+    st.markdown("**Intent split by duty** (top 10)")
+    duty_intent = (
+        cat_df.groupby("duty", as_index=False)[["practice", "reclear_farm", "blind_prog", "sessions"]]
+        .sum()
+        .sort_values("sessions", ascending=False)
+        .head(10)
+    )
+    duty_intent_long = duty_intent.melt(
+        id_vars=["duty", "sessions"],
+        value_vars=["practice", "reclear_farm", "blind_prog"],
+        var_name="intent", value_name="count",
+    )
+    chart = (
+        alt.Chart(duty_intent_long)
+        .mark_bar()
+        .encode(
+            x=alt.X("duty:N", title="Duty", sort="-y"),
+            y=alt.Y("count:Q", title="Sessions", stack="normalize", axis=alt.Axis(format="%")),
+            color=alt.Color(
+                "intent:N",
+                scale=alt.Scale(
+                    domain=["practice", "reclear_farm", "blind_prog"],
+                    range=[ACCENT_PURPLE, ACCENT_GREEN, ACCENT_BLUE],
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("duty:N", title="Duty"),
+                alt.Tooltip("intent:N", title="Intent"),
+                alt.Tooltip("count:Q", title="Count", format=","),
+            ],
+        )
+        .properties(height=320)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+    # --- Travel demand ---
+    st.divider()
+    st.markdown("**Cross-DC / cross-region travel demand")
+    st.caption("Share of listings posted by someone from a different DC or region.")
+    if travel_dc.empty:
+        st.info("No travel data for this data center yet.")
+        return
+
+    # KPI cards for travel
+    total_travel = int(travel_dc["sessions"].sum())
+    imported = int(travel_dc["traveller"].sum() + travel_dc["voyager"].sum())
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Total sessions", f"{total_travel:,}")
+    c2.metric("Imported", f"{imported:,}", f"{imported/total_travel*100:.0f}%" if total_travel else "-")
+    c3.metric("Local", f"{total_travel - imported:,}", f"{(total_travel-imported)/total_travel*100:.0f}%" if total_travel else "-")
+
+    st.divider()
+    st.markdown("**Travel share over time**")
+    travel_wide = travel_dc.groupby("reset_week", as_index=False).agg(
+        local=("local", "sum"),
+        traveller=("traveller", "sum"),
+        voyager=("voyager", "sum"),
+    )
+    travel_wide = travel_wide.sort_values("reset_week")
+    travel_long = travel_wide.melt(
+        id_vars=["reset_week"],
+        value_vars=["local", "traveller", "voyager"],
+        var_name="type", value_name="count",
+    )
+    chart = (
+        alt.Chart(travel_long)
+        .mark_area(interpolate="monotone")
+        .encode(
+            x=alt.X("reset_week:T", title="Reset week"),
+            y=alt.Y("count:Q", title="Sessions", stack="normalize", axis=alt.Axis(format="%")),
+            color=alt.Color(
+                "type:N",
+                scale=alt.Scale(
+                    domain=["local", "traveller", "voyager"],
+                    range=[ACCENT_GREEN, ACCENT_BLUE, ACCENT_PURPLE],
+                ),
+            ),
+            tooltip=[
+                alt.Tooltip("reset_week:T", title="Week"),
+                alt.Tooltip("type:N", title="Type"),
+                alt.Tooltip("count:Q", title="Count", format=","),
+            ],
+        )
+        .properties(height=280)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+
+# ------------------------------------------------------- Tab: ILvl Gating
+
+
+def render_ilvl_gating(ilvl_dc, datacenter):
+    st.subheader("Item-level gating trends")
+    st.caption(
+        "Tracks how minimum item-level gates evolve over time and correlates with fill speed. "
+        f"{_window_caption(ilvl_dc)}"
+    )
+    if ilvl_dc.empty:
+        st.info("No ilvl gating data for this data center yet.")
+        return
+
+    cats = sorted(ilvl_dc["content_category"].dropna().unique().tolist())
+    cat = st.selectbox("Content type", cats, index=_pick(cats, "savage"), key="ilvl_cat")
+    cat_df = ilvl_dc[ilvl_dc["content_category"] == cat].sort_values("reset_week")
+
+    if cat_df.empty:
+        st.info("No data for this content type.")
+        return
+
+    # KPI cards
+    avg_ilvl = cat_df["avg_ilvl"].mean()
+    fill_rate = cat_df["fill_rate_pct"].mean()
+    ttf = cat_df["median_time_to_fill_min"].mean()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Avg min ilvl", f"{avg_ilvl:.0f}")
+    c2.metric("Avg fill rate", f"{fill_rate:.0f}%")
+    c3.metric("Avg median TTF", f"{ttf:.0f} min")
+
+    st.divider()
+    st.markdown("**ILvl gate & fill rate over time**")
+    duty_opts = ["All duties"] + cat_df["duty"].dropna().unique().tolist()
+    duty = st.selectbox("Duty", duty_opts, key="ilvl_duty")
+    duty_df = cat_df if duty == "All duties" else cat_df[cat_df["duty"] == duty]
+
+    if duty_df.empty:
+        st.info("No data for this selection.")
+        return
+
+    # Dual-axis chart: ilvl line + fill rate line
+    ilvl_line = (
+        alt.Chart(duty_df)
+        .mark_line(point=True, color=ACCENT_PURPLE)
+        .encode(
+            x=alt.X("reset_week:T", title="Reset week"),
+            y=alt.Y("avg_ilvl:Q", title="Avg min ilvl", color=alt.value(ACCENT_PURPLE)),
+            tooltip=[
+                alt.Tooltip("reset_week:T", title="Week"),
+                alt.Tooltip("avg_ilvl:Q", title="Avg min ilvl", format=".0f"),
+                alt.Tooltip("p50_ilvl:Q", title="Median ilvl", format=".0f"),
+                alt.Tooltip("sessions:Q", title="Sessions", format=","),
+            ],
+        )
+    )
+    fill_line = (
+        alt.Chart(duty_df)
+        .mark_line(point=True, color=ACCENT_GREEN)
+        .encode(
+            x=alt.X("reset_week:T", title="Reset week"),
+            y=alt.Y("fill_rate_pct:Q", title="Fill rate (%)", scale=alt.Scale(domain=[0, 100]), color=alt.value(ACCENT_GREEN)),
+            tooltip=[
+                alt.Tooltip("reset_week:T", title="Week"),
+                alt.Tooltip("fill_rate_pct:Q", title="Fill rate", format=".1f"),
+                alt.Tooltip("median_time_to_fill_min:Q", title="Median TTF (min)", format=".0f"),
+            ],
+        )
+    )
+    chart = style_chart(ilvl_line + fill_line)
+    st.altair_chart(chart, width="stretch")
+
+    st.divider()
+    st.markdown("**ILvl distribution by duty**")
+    duty_ilvl = (
+        duty_df.groupby("duty", as_index=False).agg(
+            avg=("avg_ilvl", "mean"),
+            p50=("p50_ilvl", "first"),
+            p90=("p90_ilvl", "first"),
+            fill=("fill_rate_pct", "mean"),
+            sessions=("sessions", "sum"),
+        )
+        .sort_values("avg", ascending=False)
+        .head(15)
+    )
+    chart = (
+        alt.Chart(duty_ilvl)
+        .mark_bar()
+        .encode(
+            x=alt.X("avg:Q", title="Avg min ilvl"),
+            y=alt.Y("duty:N", title="Duty", sort="-x"),
+            color=alt.Color("fill:Q", title="Fill rate (%)", scale=alt.Scale(scheme="greens")),
+            tooltip=[
+                alt.Tooltip("duty:N", title="Duty"),
+                alt.Tooltip("avg:Q", title="Avg min ilvl", format=".0f"),
+                alt.Tooltip("p50:Q", title="Median ilvl", format=".0f"),
+                alt.Tooltip("p90:Q", title="p90 ilvl", format=".0f"),
+                alt.Tooltip("fill:Q", title="Fill rate", format=".1f"),
+                alt.Tooltip("sessions:Q", title="Sessions", format=","),
+            ],
+        )
+        .properties(height=320)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+
+# ------------------------------------------------------- Tab: Listing Tags
+
+
+def render_listing_tags(tags_dc, datacenter):
+    st.subheader("Listing description tags")
+    st.caption(
+        "Share of sessions carrying each tag: loot rules, one-per-job, duty completion variants. "
+        f"{_window_caption(tags_dc)}"
+    )
+    if tags_dc.empty:
+        st.info("No tag data for this data center yet.")
+        return
+
+    cats = sorted(tags_dc["content_category"].dropna().unique().tolist())
+    cat = st.selectbox("Content type", cats, index=_pick(cats, "savage"), key="tags_cat")
+    cat_df = tags_dc[tags_dc["content_category"] == cat]
+
+    if cat_df.empty:
+        st.info("No data for this content type.")
+        return
+
+    # KPI cards - overall tag prevalence
+    tag_cols = ["loot_pct", "clear_pct", "one_per_job_pct", "weekly_unclaimed_pct", "duty_completion_pct", "duty_incomplete_pct"]
+    tag_labels = ["Loot", "Clear", "1/job", "Weekly", "Completion", "Incomplete"]
+    tag_vals = [cat_df[c].mean() for c in tag_cols]
+
+    cols = st.columns(6)
+    for col, label, val in zip(cols, tag_labels, tag_vals):
+        col.metric(f"{label}%", f"{val:.0f}%")
+
+    st.divider()
+    st.markdown("**Tag prevalence by duty** (average %)")
+    duty_tags = (
+        cat_df.groupby("duty", as_index=False)[tag_cols].mean()
+        .melt(id_vars=["duty"], value_vars=tag_cols, var_name="tag", value_name="pct")
+        .sort_values("pct", ascending=False)
+    )
+    duty_tags["tag_label"] = duty_tags["tag"].map(dict(zip(tag_cols, tag_labels)))
+    tag_order = tag_labels
+
+    chart = (
+        alt.Chart(duty_tags)
+        .mark_bar()
+        .encode(
+            x=alt.X("pct:Q", title="Avg prevalence (%)"),
+            y=alt.Y("duty:N", title="Duty", sort="-x"),
+            color=alt.Color("tag_label:N", title="Tag", scale=alt.Scale(domain=tag_order, range=list(HEATMAP_SCHEME))),
+            tooltip=[
+                alt.Tooltip("duty:N", title="Duty"),
+                alt.Tooltip("tag_label:N", title="Tag"),
+                alt.Tooltip("pct:Q", title="Avg prevalence", format=".1f"),
+            ],
+        )
+        .properties(height=360)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+    st.divider()
+    st.markdown("**Tag trends over time**")
+    time_tags = (
+        cat_df.groupby("reset_week", as_index=False)[tag_cols].mean()
+        .melt(id_vars=["reset_week"], value_vars=tag_cols, var_name="tag", value_name="pct")
+    )
+    time_tags["tag_label"] = time_tags["tag"].map(dict(zip(tag_cols, tag_labels)))
+
+    chart = (
+        alt.Chart(time_tags)
+        .mark_line(point=True, strokeWidth=2)
+        .encode(
+            x=alt.X("reset_week:T", title="Reset week"),
+            y=alt.Y("pct:Q", title="Avg prevalence (%)"),
+            color=alt.Color("tag_label:N", title="Tag", scale=alt.Scale(domain=tag_order, range=list(HEATMAP_SCHEME))),
+            tooltip=[
+                alt.Tooltip("reset_week:T", title="Week"),
+                alt.Tooltip("tag_label:N", title="Tag"),
+                alt.Tooltip("pct:Q", title="Prevalence", format=".1f"),
+            ],
+        )
+        .properties(height=280)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+
+# ------------------------------------------------------- Tab: Market Saturation
+
+
+def render_market_saturation(sat_dc, datacenter):
+    st.subheader("Market saturation / concurrency")
+    st.caption(
+        "Estimates how many other groups are recruiting for the same duty at the same time. "
+        f"{_window_caption(sat_dc)}"
+    )
+    if sat_dc.empty:
+        st.info("No saturation data for this data center yet.")
+        return
+
+    cats = sorted(sat_dc["content_category"].dropna().unique().tolist())
+    cat = st.selectbox("Content type", cats, index=_pick(cats, "savage"), key="sat_cat")
+    cat_df = sat_dc[sat_dc["content_category"] == cat]
+
+    if cat_df.empty:
+        st.info("No data for this content type.")
+        return
+
+    # KPI cards
+    avg_conc = cat_df["avg_concurrent"].mean()
+    max_conc = cat_df["max_concurrent"].max()
+    zero_comp = cat_df["zero_competition"].mean()
+    c1, c2, c3 = st.columns(3)
+    c1.metric("Avg concurrency", f"{avg_conc:.1f}")
+    c2.metric("Peak concurrency", f"{max_conc:.0f}")
+    c3.metric("Avg zero-comp %", f"{zero_comp:.0f}%")
+
+    st.divider()
+    st.markdown("**Concurrency by duty × hour**")
+    sat_heatmap = cat_df.groupby(["duty", "post_hour"], as_index=False)["avg_concurrent"].mean()
+    sat_heatmap = sat_heatmap.sort_values("avg_concurrent", ascending=False).head(20)
+
+    chart = (
+        alt.Chart(sat_heatmap)
+        .mark_rect()
+        .encode(
+            x=alt.X("post_hour:O", title="Hour (UTC)"),
+            y=alt.Y("duty:N", title="Duty", sort="-x"),
+            color=alt.Color("avg_concurrent:Q", title="Avg concurrency", scale=alt.Scale(scheme="viridis")),
+            tooltip=[
+                alt.Tooltip("duty:N", title="Duty"),
+                alt.Tooltip("post_hour:O", title="Hour"),
+                alt.Tooltip("avg_concurrent:Q", title="Avg concurrency", format=".1f"),
+                alt.Tooltip("max_concurrent:Q", title="Max concurrency", format=".0f"),
+                alt.Tooltip("zero_competition:Q", title="Zero-comp %", format=".1f"),
+            ],
+        )
+        .properties(height=360)
+    )
+    st.altair_chart(style_chart(chart), width="stretch")
+
+    st.divider()
+    st.markdown("**Zero-competition chance by duty**")
+    duty_zero = (
+        cat_df.groupby("duty", as_index=False)["zero_competition"]
+        .mean()
+        .sort_values("zero_competition", ascending=False)
+        .head(15)
+    )
+    chart = (
+        alt.Chart(duty_zero)
+        .mark_bar()
+        .encode(
+            x=alt.X("zero_competition:Q", title="Zero-comp %", scale=alt.Scale(domain=[0, 100])),
+            y=alt.Y("duty:N", title="Duty", sort="-x"),
+            color=alt.Color("zero_competition:Q", title="Zero-comp %", scale=alt.Scale(scheme="greens")),
+            tooltip=[
+                alt.Tooltip("duty:N", title="Duty"),
+                alt.Tooltip("zero_competition:Q", title="Zero-comp %", format=".1f"),
+                alt.Tooltip("avg_concurrent:Q", title="Avg concurrency", format=".1f"),
+            ],
+        )
+        .properties(height=320)
     )
     st.altair_chart(style_chart(chart), width="stretch")
 
@@ -573,6 +1169,15 @@ if has_range:
     )
     in_range = lambda df: df[(df["reset_week"] >= start) & (df["reset_week"] <= end)]
     duty_range, role_range = in_range(duty_dc), in_range(role_dc)
+
+    # Quick-select buttons for common ranges
+    q1, q2, q3 = st.sidebar.columns(3)
+    if q1.button("8w", key="qbtn_8w", use_container_width=True):
+        st.session_state.flt_weeks = (week_dates[-8], week_dates[-1])
+    if q2.button("16w", key="qbtn_16w", use_container_width=True):
+        st.session_state.flt_weeks = (week_dates[-16], week_dates[-1])
+    if q3.button("All", key="qbtn_all", use_container_width=True):
+        st.session_state.flt_weeks = (week_dates[0], week_dates[-1])
 else:
     st.sidebar.caption("Not enough weekly history yet.")
     duty_range, role_range = duty_dc, role_dc
@@ -581,8 +1186,8 @@ with st.sidebar:
     st.divider()
     st.caption("Data is refreshed periodically, not live. See the **FAQ** page for methodology and privacy.")
 
-tab_overview, tab_timing, tab_duties, tab_roles, tab_outcomes = st.tabs(
-    ["📊 Overview", "⏰ When to Post", "📈 Duty Trends", "🛡️ Roles", "✅ Fill Outcomes"]
+tab_overview, tab_timing, tab_duties, tab_roles, tab_outcomes, tab_intent, tab_ilvl, tab_tags, tab_sat = st.tabs(
+    ["📊 Overview", "⏰ When to Post", "📈 Duty Trends", "🛡️ Roles", "✅ Fill Outcomes", "🎯 Intent & Travel", "⚔️ ILvl Gating", "🏷️ Tags", "📊 Saturation"]
 )
 with tab_overview:
     render_overview(funnel_dc, heatmap_dc, duty_dc, datacenter)
@@ -594,3 +1199,11 @@ with tab_roles:
     render_roles(rd_dc, role_range, datacenter, has_range)
 with tab_outcomes:
     render_outcomes(funnel_dc, datacenter)
+with tab_intent:
+    render_intent_travel(intent_dc, travel_dc, datacenter)
+with tab_ilvl:
+    render_ilvl_gating(ilvl_dc, datacenter)
+with tab_tags:
+    render_listing_tags(tags_dc, datacenter)
+with tab_sat:
+    render_market_saturation(sat_dc, datacenter)

@@ -5,7 +5,7 @@ config {
   name: "mart_fill_funnel",
   description: "Outcome funnel by content_category x region x datacenter. For every listing session, outcome is one of filled / expired_partial / flash / live / multiparty; this mart reports the share of each. It is the missing DENOMINATOR for the rest of the gold layer: a fast median_time_to_fill only means something once you know what fraction of listings fill. Sourced from fct_listing_lifecycle (one row per session). 'filled' is inferred from delisting (last seen one short of full, then vanished). CAVEATS: 'flash' sessions are single-snapshot and right-censored (instant-fill vs instant-expire indistinguishable) - an ambiguity band, not a failure rate; 'live' sessions are still active at the data frontier (outcome not yet resolved) and get finalized on a later incremental run; 'multiparty' sessions (slots_total > 8: alliance/PvP) expose only 8 slots so per-party fill is unobservable and excluded from fill rates. Maps to a stacked/funnel bar per content x region.",
   bigquery: {
-    clusterBy: ["pf_region", "content_category"]
+    clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
     nonNull: ["pf_region", "content_category"],

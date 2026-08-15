@@ -5,7 +5,7 @@ config {
   name: "mart_role_demand",
   description: "PATTERN MART. Role bottleneck analysis by content_category x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck', and the bottleneck-role counts answer 'which role is hardest to fill'. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier, so intraday role demand reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. For date-filterable role trends across patch history use mart_role_trends. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart.",
   bigquery: {
-    clusterBy: ["pf_region", "content_category"]
+    clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
     nonNull: ["pf_region", "content_category", "post_hour"],

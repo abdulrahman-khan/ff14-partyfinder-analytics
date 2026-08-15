@@ -1,0 +1,97 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  name: "mart_listing_intent",
+  description: "HIGH-END LISTING INTENT MART. Splits high-end listings into practice / reclear-farm / blind-prog (neither flag) buckets with fill rate and time-to-fill per bucket. Grain: content_category × region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session). Uses is_practice / is_duty_complete from the session; a session with is_duty_complete=1 is reclear-farm, is_practice=1 is practice, neither is blind-prog. Multiparty and flash sessions are excluded from fill metrics. Maps to a stacked bar or donut per duty showing the intent split and how fill rates differ across intent types.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "content_category", "duty", "intent"],
+    rowConditions: [
+      "sessions > 0",
+      "practice + reclear_farm + blind_prog = sessions",
+      "practice_pct + reclear_farm_pct + blind_prog_pct = 100"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    duty: "Duty name (hashed key)",
+    reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
+    intent: "practice / reclear_farm / blind_prog",
+    sessions: "Total listing sessions in this bucket",
+    practice: "Sessions tagged [practice]",
+    reclear_farm: "Sessions tagged [clear] but not [practice]",
+    blind_prog: "Sessions with neither [practice] nor [clear]",
+    practice_pct: "practice / sessions * 100",
+    reclear_farm_pct: "reclear_farm / sessions * 100",
+    blind_prog_pct: "blind_prog / sessions * 100",
+    sessions_filled: "Sessions inferred to have filled",
+    fill_rate_pct: "sessions_filled / sessions * 100",
+    median_time_to_fill_min: "Median minutes from post to full over filled sessions (APPROX p50)"
+  }
+}
+
+WITH base AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    l.content_category,
+    d.duty,
+    dd.reset_week,
+    CASE
+      WHEN l.is_practice = 1 THEN 'practice'
+      WHEN l.is_duty_complete = 1 THEN 'reclear_farm'
+      ELSE 'blind_prog'
+    END AS intent,
+    l.outcome,
+    l.time_to_full_min
+  FROM ${ref("fct_listing_lifecycle")} l
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+  LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  WHERE l.pf_region IS NOT NULL
+    AND l.is_high_end = 1
+    AND l.slots_total <= 8
+    AND l.n_snapshots > 1
+    AND l.outcome NOT IN ('flash', 'multiparty')
+),
+
+agg AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    content_category,
+    duty,
+    reset_week,
+    intent,
+    COUNT(*) AS sessions,
+    COUNTIF(intent = 'practice') AS practice,
+    COUNTIF(intent = 'reclear_farm') AS reclear_farm,
+    COUNTIF(intent = 'blind_prog') AS blind_prog,
+    COUNTIF(outcome = 'filled') AS sessions_filled,
+    APPROX_QUANTILES(time_to_full_min, 10)[OFFSET(5)] AS median_time_to_fill_min
+  FROM base
+  GROUP BY 1, 2, 3, 4, 5, 6
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  content_category,
+  duty,
+  reset_week,
+  intent,
+  sessions,
+  practice,
+  reclear_farm,
+  blind_prog,
+  ROUND(practice * 100.0 / sessions, 1) AS practice_pct,
+  ROUND(reclear_farm * 100.0 / sessions, 1) AS reclear_farm_pct,
+  ROUND(blind_prog * 100.0 / sessions, 1) AS blind_prog_pct,
+  sessions_filled,
+  ROUND(COALESCE(sessions_filled * 100.0 / sessions, 0), 1) AS fill_rate_pct,
+  median_time_to_fill_min
+FROM agg
