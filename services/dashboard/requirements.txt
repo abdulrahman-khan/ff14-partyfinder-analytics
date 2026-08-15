@@ -1,5 +1,8 @@
 streamlit
 altair
+plotly
+streamlit-echarts
+streamlit-extras
 google-cloud-bigquery
 pandas
 db-dtypes

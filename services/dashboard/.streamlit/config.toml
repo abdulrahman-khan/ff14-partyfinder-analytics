@@ -5,4 +5,5 @@ primaryColor = "#E5A73C"             # Eorzean gold - accents, active widgets, l
 backgroundColor = "#0E1117"          # near-black slate - page background
 secondaryBackgroundColor = "#1B2430" # panels, sidebar, metric cards
 textColor = "#E6E6E6"
-font = "sans serif"
+font = "Inter, sans serif"
+borderRadius = "12"

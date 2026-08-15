@@ -5,7 +5,7 @@ config {
   name: "mart_time_to_fill",
   description: "HERO PATTERN MART. Time-to-fill and fill rate by duty x region x datacenter x weekday x hour-of-day, bucketed on when the listing was POSTED (session_start). RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier (max first_seen_date), so intraday post-timing patterns reflect the current tier instead of smearing across patch boundaries; window_start_date/window_end_date carry the bounds. For date-filterable patch-history trends use mart_duty_trends. Sourced from fct_listing_lifecycle. Fill is INFERRED from delisting (see fct_listing_lifecycle): a session last seen one short of full that then vanished is 'filled'. Percentiles are over filled sessions; fill_rate_pct is over RESOLVED sessions (filled + expired_partial) so single-snapshot 'flash' and still-'live' sessions are excluded. Maps to a weekday x hour heatmap.",
   bigquery: {
-    clusterBy: ["pf_region", "content_category"]
+    clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
     nonNull: ["pf_region", "duty", "post_weekday", "post_hour"],
@@ -33,7 +33,13 @@ config {
     fill_rate_pct: "sessions_filled / sessions_resolved * 100",
     median_time_to_fill_min: "Median minutes from post to full, over filled sessions (APPROX p50)",
     p90_time_to_fill_min: "90th percentile minutes to full, over filled sessions",
-    avg_time_to_fill_min: "Mean minutes to full, over filled sessions"
+    avg_time_to_fill_min: "Mean minutes to full, over filled sessions",
+    ttf_lt_15: "Filled sessions with time-to-fill < 15 minutes",
+    ttf_15_30: "Filled sessions with time-to-fill 15-30 minutes",
+    ttf_30_60: "Filled sessions with time-to-fill 30-60 minutes",
+    ttf_60_120: "Filled sessions with time-to-fill 60-120 minutes",
+    ttf_gt_120: "Filled sessions with time-to-fill > 120 minutes",
+    censored_pct: "Share of sessions that are right-censored (live/flash) and excluded from ttf"
   }
 }
 
@@ -83,7 +89,13 @@ agg AS (
     ROUND(SAFE_DIVIDE(COUNTIF(reached_full = 1), COUNTIF(outcome IN ('filled', 'expired_partial'))) * 100, 1) AS fill_rate_pct,
     APPROX_QUANTILES(ttf, 100)[OFFSET(50)] AS median_time_to_fill_min,
     APPROX_QUANTILES(ttf, 100)[OFFSET(90)] AS p90_time_to_fill_min,
-    ROUND(AVG(ttf), 1) AS avg_time_to_fill_min
+    ROUND(AVG(ttf), 1) AS avg_time_to_fill_min,
+    COUNTIF(ttf IS NOT NULL AND ttf < 15) AS ttf_lt_15,
+    COUNTIF(ttf IS NOT NULL AND ttf BETWEEN 15 AND 29) AS ttf_15_30,
+    COUNTIF(ttf IS NOT NULL AND ttf BETWEEN 30 AND 59) AS ttf_30_60,
+    COUNTIF(ttf IS NOT NULL AND ttf BETWEEN 60 AND 119) AS ttf_60_120,
+    COUNTIF(ttf IS NOT NULL AND ttf >= 120) AS ttf_gt_120,
+    ROUND(COUNTIF(outcome IN ('live', 'flash')) * 100.0 / COUNT(*), 1) AS censored_pct
   FROM base
   GROUP BY 1, 2, 3, 4, 5, 6, 7, 8, 9
 )

@@ -28,6 +28,9 @@ WITH snapshots AS (
     pf_datacenter, pf_region, creator_datacenter, creator_region,
     is_cross, is_traveller, is_voyager,
     is_practice, is_duty_complete,
+    is_loot, is_clear, is_one_per_job,
+    is_weekly_unclaimed, is_duty_completion,
+    is_duty_incomplete,
     min_ilvl, slots_filled, slots_total,
     open_tank_slots, open_healer_slots, open_dps_slots
   FROM ${ref("fct_listings")}
@@ -90,9 +93,15 @@ agg AS (
     MAX(is_cross) AS is_cross,
     MAX(is_traveller) AS is_traveller,
     MAX(is_voyager) AS is_voyager,
-    -- intent tags are set at post time; MAX = ever tagged during the session
+    -- intent/description tags are set at post time; MAX = ever tagged during the session
     MAX(is_practice) AS is_practice,
     MAX(is_duty_complete) AS is_duty_complete,
+    MAX(is_loot) AS is_loot,
+    MAX(is_clear) AS is_clear,
+    MAX(is_one_per_job) AS is_one_per_job,
+    MAX(is_weekly_unclaimed) AS is_weekly_unclaimed,
+    MAX(is_duty_completion) AS is_duty_completion,
+    MAX(is_duty_incomplete) AS is_duty_incomplete,
     MAX(min_ilvl) AS min_ilvl,
 
     MAX(slots_total) AS slots_total,
@@ -148,6 +157,12 @@ SELECT
   s.is_voyager,
   s.is_practice,
   s.is_duty_complete,
+  s.is_loot,
+  s.is_clear,
+  s.is_one_per_job,
+  s.is_weekly_unclaimed,
+  s.is_duty_completion,
+  s.is_duty_incomplete,
   s.min_ilvl,
 
   s.slots_total,

@@ -1,0 +1,47 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  name: "mart_travel_demand",
+  description: "CROSS-DC / CROSS-REGION TRAVEL DEMAND MART. Reports what share of a DC's listings were posted by someone whose home DC/region differs. Grain: pf_region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session). Uses is_traveller (different DC) and is_voyager (different region). Answers 'how much of my DC's PF traffic is imported' — a real signal for whether a DC is a net importer or exporter of listings. Maps to a stacked bar per DC showing local vs imported share over time.",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "reset_week"],
+    rowConditions: [
+      "sessions > 0",
+      "local + traveller + voyager = sessions",
+      "local_pct + traveller_pct + voyager_pct = 100"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
+    sessions: "Total listing sessions in this bucket",
+    local: "Posted by a recruiter from the same DC",
+    traveller: "Posted by a recruiter from a different DC but same region",
+    voyager: "Posted by a recruiter from a different region",
+    local_pct: "local / sessions * 100",
+    traveller_pct: "traveller / sessions * 100",
+    voyager_pct: "voyager / sessions * 100",
+    imported_pct: "(traveller + voyager) / sessions * 100"
+  }
+}
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  reset_week,
+  COUNT(*) AS sessions,
+  COUNTIF(is_voyager = 0 AND is_traveller = 0) AS local,
+  COUNTIF(is_voyager = 0 AND is_traveller = 1) AS traveller,
+  COUNTIF(is_voyager = 1) AS voyager,
+  ROUND(COUNTIF(is_voyager = 0 AND is_traveller = 0) * 100.0 / COUNT(*), 1) AS local_pct,
+  ROUND(COUNTIF(is_voyager = 0 AND is_traveller = 1) * 100.0 / COUNT(*), 1) AS traveller_pct,
+  ROUND(COUNTIF(is_voyager = 1) * 100.0 / COUNT(*), 1) AS voyager_pct,
+  ROUND(COUNTIF(is_voyager = 1 OR is_traveller = 1) * 100.0 / COUNT(*), 1) AS imported_pct
+FROM ${ref("fct_listing_lifecycle")}
+WHERE pf_region IS NOT NULL
+GROUP BY 1, 2, 3

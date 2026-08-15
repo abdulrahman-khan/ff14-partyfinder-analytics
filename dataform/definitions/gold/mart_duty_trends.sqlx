@@ -3,7 +3,7 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_duty_trends",
-  description: "HERO TREND MART. Date-filterable, DC-primary popularity + fill + speed by duty x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). ONE date-range filter serves both 'recent (past few weeks)' and 'full patch-history summary' - the dashboard filters on reset_week and re-aggregates in pandas. Datacenter is the grain because a Party Finder listing is exclusive to the DC it is hosted on (a JP listing never appears in NA Crystal; NA Aether never appears in NA Crystal); region is a rollup, recovered by summing DCs. Supersedes mart_content_trends (region-only, volume-only). Sourced from fct_listing_lifecycle (one row per session). Fill is INFERRED from delisting (see fct_listing_lifecycle): fill_rate_pct is over RESOLVED sessions (filled + expired_partial); time-to-fill percentiles are over filled sessions only; multiparty/flash/live are excluded from fill metrics but counted in listings. Maps to per-DC trend lines and ranked bars.",
+  description: "HERO TREND MART. Date-filterable, DC-primary popularity + fill + speed by duty x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). ONE date-range filter serves both 'recent (past few weeks)' and 'full patch-history summary' - the dashboard filters on reset_week and re-aggregates in pandas. Datacenter is the grain because a Party Finder listing is exclusive to the DC it is hosted on (a JP listing never appears in NA Crystal; NA Aether never appears in NA Crystal); region is a rollup, recovered by summing DCs. Supersedes mart_content_trends (region-only, volume-only). Sourced from fct_listing_lifecycle (one row per session). Fill is INFERRED from delisting (see fct_listing_lifecycle): fill_rate_pct is over RESOLVED sessions (filled + expired_partial); time-to-fill percentiles are over filled sessions only; multiparty/flash/live are excluded from fill metrics but counted in listings. wow_pct_change is noisy for low-volume duties (a small denominator swings the percent wildly), so a trailing 4-week rolling average/stddev and a listings_zscore are also computed per duty/DC to flag genuine volume anomalies vs. that noise. Maps to per-DC trend lines and ranked bars.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter"]
   },
@@ -33,7 +33,11 @@ config {
     sessions_filled: "Sessions inferred to have filled (delisted from one short of full)",
     fill_rate_pct: "sessions_filled / sessions_resolved * 100",
     median_time_to_fill_min: "Median minutes from post to full over filled sessions (APPROX p50)",
-    p90_time_to_fill_min: "90th percentile minutes to full over filled sessions"
+    p90_time_to_fill_min: "90th percentile minutes to full over filled sessions",
+    rolling_avg_listings_4wk: "Trailing 4-week average of listings for this duty/DC, excluding the current week (NULL until at least 1 prior week exists)",
+    rolling_weeks_available: "Number of prior weeks feeding rolling_avg_listings_4wk/listings_zscore (max 4); below 3 the z-score is low-confidence",
+    listings_zscore: "(listings - rolling_avg_listings_4wk) / trailing stddev; NULL when stddev is 0 or no prior weeks exist",
+    is_volume_anomaly: "TRUE when rolling_weeks_available >= 3 AND ABS(listings_zscore) >= 2 - a real spike/drop, not just wow_pct_change noise on a small base"
   }
 }
 
@@ -62,11 +66,23 @@ WITH weekly AS (
 with_prev AS (
   SELECT
     *,
-    LAG(listings) OVER (
-      PARTITION BY pf_region, pf_datacenter, duty
-      ORDER BY reset_week
-    ) AS listings_prev_week
+    LAG(listings) OVER (dc_duty_week) AS listings_prev_week,
+    -- trailing window excludes the current row so today's spike can't inflate its own baseline
+    AVG(listings) OVER (dc_duty_week ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING) AS rolling_avg_listings_4wk,
+    STDDEV(listings) OVER (dc_duty_week ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING) AS rolling_stddev_listings_4wk,
+    COUNT(*) OVER (dc_duty_week ROWS BETWEEN 4 PRECEDING AND 1 PRECEDING) AS rolling_weeks_available
   FROM weekly
+  WINDOW dc_duty_week AS (
+    PARTITION BY pf_region, pf_datacenter, duty
+    ORDER BY reset_week
+  )
+),
+
+scored AS (
+  SELECT
+    *,
+    SAFE_DIVIDE(listings - rolling_avg_listings_4wk, NULLIF(rolling_stddev_listings_4wk, 0)) AS listings_zscore
+  FROM with_prev
 )
 
 SELECT
@@ -85,5 +101,9 @@ SELECT
   sessions_filled,
   fill_rate_pct,
   median_time_to_fill_min,
-  p90_time_to_fill_min
-FROM with_prev
+  p90_time_to_fill_min,
+  ROUND(rolling_avg_listings_4wk, 1) AS rolling_avg_listings_4wk,
+  rolling_weeks_available,
+  ROUND(listings_zscore, 2) AS listings_zscore,
+  rolling_weeks_available >= 3 AND ABS(listings_zscore) >= 2 AS is_volume_anomaly
+FROM scored

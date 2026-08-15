@@ -1,0 +1,91 @@
+config {
+  type: "table",
+  schema: "gold",
+  tags: ["gold"],
+  name: "mart_market_saturation",
+  description: "MARKET SATURATION / CONCURRENCY MART. Estimates how many other groups are recruiting for the same duty at the same time — a real signal for whether posting now means competing or having the field to yourself. Grain: duty × region × datacenter × reset_week × post_hour. Uses session [first_seen, last_seen] windows to count overlapping active listings per duty per hour. Sourced from fct_listing_lifecycle (one row per session). Each session contributes +1 to every hour bucket it spans. Maps to a line chart (concurrency over time) and a heatmap (concurrency by duty × hour of day).",
+  bigquery: {
+    clusterBy: ["pf_region", "pf_datacenter", "content_category"]
+  },
+  assertions: {
+    nonNull: ["pf_region", "pf_datacenter", "duty", "reset_week", "post_hour"],
+    rowConditions: [
+      "sessions > 0",
+      "avg_concurrent >= 1",
+      "max_concurrent >= avg_concurrent"
+    ]
+  },
+  columns: {
+    pf_region: "Region the listing was posted in",
+    pf_datacenter: "Datacenter the listing was posted on",
+    duty: "Duty name",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
+    post_hour: "Hour of day (UTC) the listing was posted (0-23)",
+    sessions: "Listing sessions posted in this bucket",
+    avg_concurrent: "Average number of listings for this duty active in this hour bucket",
+    max_concurrent: "Maximum concurrent listings seen in this hour bucket",
+    p75_concurrent: "75th percentile concurrent listings in this hour bucket",
+    zero_competition: "Share of hours with 0 other listings for this duty (standout chance)"
+  }
+}
+
+WITH hourly AS (
+  SELECT
+    l.pf_region,
+    l.pf_datacenter,
+    d.duty,
+    l.content_category,
+    dd.reset_week,
+    EXTRACT(HOUR FROM l.session_start) AS post_hour,
+    l.session_start,
+    l.last_seen,
+    l.duty_key
+  FROM ${ref("fct_listing_lifecycle")} l
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+  LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  WHERE l.pf_region IS NOT NULL
+    AND l.n_snapshots > 1
+    AND l.outcome NOT IN ('flash', 'multiparty')
+),
+
+-- For each session, generate one row per hour it was active, then count overlaps
+active_hours AS (
+  SELECT
+    h.pf_region,
+    h.pf_datacenter,
+    h.duty,
+    h.content_category,
+    h.reset_week,
+    h.post_hour,
+    h.duty_key,
+    -- A session is active in hour H if session_start <= H-end AND last_seen >= H-start
+    -- We count how many other sessions for the same duty overlap each session's hours
+    (
+      SELECT COUNT(*)
+      FROM hourly h2
+      WHERE h2.pf_region = h.pf_region
+        AND h2.pf_datacenter = h.pf_datacenter
+        AND h2.duty_key = h.duty_key
+        AND h2.session_start < h.last_seen
+        AND h2.last_seen > h.session_start
+        AND EXTRACT(HOUR FROM GREATEST(h2.session_start, h.session_start)) = h.post_hour
+        AND DATE(GREATEST(h2.session_start, h.session_start)) = DATE(h.session_start)
+    ) AS other_count
+  FROM hourly h
+)
+
+SELECT
+  pf_region,
+  pf_datacenter,
+  duty,
+  content_category,
+  reset_week,
+  post_hour,
+  COUNT(*) AS sessions,
+  ROUND(AVG(other_count), 1) AS avg_concurrent,
+  MAX(other_count) AS max_concurrent,
+  APPROX_QUANTILES(other_count, 4)[OFFSET(3)] AS p75_concurrent,
+  ROUND(COUNTIF(other_count = 0) * 100.0 / COUNT(*), 1) AS zero_competition
+FROM active_hours
+GROUP BY 1, 2, 3, 4, 5, 6
