@@ -32,7 +32,7 @@ flowchart TD
 
 ## Medallion lineage
 
-Bronze is raw and append-only. Silver is where cleaning, keying, and the two hardest transforms happen: pseudonymization and sessionization. Gold is ten pre-aggregated marts, all sourced from one keystone fact.
+Bronze is raw and append-only. Silver is where cleaning, keying, and the two hardest transforms happen: pseudonymization and sessionization. Gold is 11 pre-aggregated marts, all sourced from one keystone fact.
 
 Legend: 🥉 bronze · 🥈 silver · 🥇 gold · 🔒 privacy-restricted (dashed = manual/annotation, not a data transform).
 
@@ -65,7 +65,7 @@ flowchart TD
     end
 
     subgraph GoldLayer["🥇 GOLD - pre-aggregated marts"]
-        G["10 marts<br/>pattern + trend + fill_funnel<br/>see gold_marts.md"]:::gold
+        G["11 marts<br/>pattern + trend + fill_funnel<br/>see gold_marts.md"]:::gold
     end
 
     B_listings -->|pseudonymize| S_fct
