@@ -3,12 +3,12 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_role_demand",
-  description: "PATTERN MART. Role bottleneck analysis by content_category x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck', and the bottleneck-role counts answer 'which role is hardest to fill'. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier, so intraday role demand reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. For date-filterable role trends across patch history use mart_role_trends. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart.",
+  description: "PATTERN MART. Role bottleneck analysis by duty x region x datacenter x hour-of-day. Open-slot shares answer 'which role is the bottleneck for this fight', and the bottleneck-role counts answer 'which role is hardest to fill for this fight'. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier, so intraday role demand reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. For date-filterable role trends across patch history use mart_role_trends. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a stacked-bar / role-share chart, filterable to one duty.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
-    nonNull: ["pf_region", "content_category", "post_hour"],
+    nonNull: ["pf_region", "duty", "content_category", "post_hour"],
     rowConditions: [
       "sessions > 0",
       "open_tank_share_pct IS NULL OR open_tank_share_pct BETWEEN 0 AND 100",
@@ -19,6 +19,7 @@ config {
   columns: {
     pf_region: "Region the listing was posted in",
     pf_datacenter: "Datacenter the listing was posted on",
+    duty: "Duty name",
     content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
     is_high_end: "1 if high-end content",
     post_hour: "Hour of day (UTC) the listing was posted (0-23)",
@@ -47,24 +48,27 @@ WITH win AS (
 
 base AS (
   SELECT
-    pf_region,
-    pf_datacenter,
-    content_category,
-    is_high_end,
-    EXTRACT(HOUR FROM session_start) AS post_hour,
-    avg_open_tank,
-    avg_open_healer,
-    avg_open_dps,
-    bottleneck_role
-  FROM ${ref("fct_listing_lifecycle")}
-  WHERE pf_region IS NOT NULL
-    AND first_seen_date >= ${ffxiv.patternWindowCutoff(ref("fct_listing_lifecycle"))}
+    l.pf_region,
+    l.pf_datacenter,
+    d.duty,
+    l.content_category,
+    l.is_high_end,
+    EXTRACT(HOUR FROM l.session_start) AS post_hour,
+    l.avg_open_tank,
+    l.avg_open_healer,
+    l.avg_open_dps,
+    l.bottleneck_role
+  FROM ${ref("fct_listing_lifecycle")} l
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+  WHERE l.pf_region IS NOT NULL
+    AND l.first_seen_date >= ${ffxiv.patternWindowCutoff(ref("fct_listing_lifecycle"))}
 ),
 
 agg AS (
   SELECT
     pf_region,
     pf_datacenter,
+    duty,
     content_category,
     is_high_end,
     post_hour,
@@ -85,7 +89,7 @@ agg AS (
       ELSE 'dps'
     END AS most_common_bottleneck
   FROM base
-  GROUP BY 1, 2, 3, 4, 5
+  GROUP BY 1, 2, 3, 4, 5, 6
 )
 
 SELECT agg.*, win.window_start_date, win.window_end_date

@@ -3,12 +3,12 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_role_trends",
-  description: "Date-filterable, DC-primary role demand by content_category x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). The trend sibling of mart_role_demand (which is intraday, recent-window). ONE date-range filter serves both recent weeks and full patch history; the dashboard filters on reset_week and re-aggregates in pandas. Open-slot share is UNMET role demand for the week: the role with the highest open share is the bottleneck (hardest to recruit), while the role players bring most (usually DPS) has its slots fill fastest and rarely tops the share - so the modal bottleneck is the read for 'which role is scarce' and its inverse for 'what role people play most'. Datacenter is the grain because PF is DC-exclusive; region is a rollup. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a role-share-over-time / bottleneck trend chart.",
+  description: "Date-filterable, DC-primary role demand by duty x region x datacenter x FFXIV reset week (Tuesday 08:00 UTC via dim_date). The trend sibling of mart_role_demand (which is intraday, recent-window). ONE date-range filter serves both recent weeks and full patch history; the dashboard filters on reset_week and re-aggregates in pandas. Open-slot share is UNMET role demand for the week: the role with the highest open share is the bottleneck (hardest to recruit) for that fight, while the role players bring most (usually DPS) has its slots fill fastest and rarely tops the share - so the modal bottleneck is the read for 'which role is scarce for this fight' and its inverse for 'what role people play most'. Datacenter is the grain because PF is DC-exclusive; region is a rollup. Sourced from fct_listing_lifecycle (per-session average open slots). Maps to a role-share-over-time / bottleneck trend chart, filterable to one duty.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter"]
   },
   assertions: {
-    nonNull: ["pf_region", "pf_datacenter", "content_category", "reset_week"],
+    nonNull: ["pf_region", "pf_datacenter", "duty", "content_category", "reset_week"],
     rowConditions: [
       "sessions > 0",
       "open_tank_share_pct IS NULL OR open_tank_share_pct BETWEEN 0 AND 100",
@@ -19,10 +19,11 @@ config {
   columns: {
     pf_region: "Region the listing was posted in (rollup dimension)",
     pf_datacenter: "Data center the listing was posted on (primary grain - PF isolation boundary)",
+    duty: "Duty name",
     content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
     is_high_end: "1 if high-end content",
     reset_week: "Tuesday (08:00 UTC) opening the FFXIV reset week",
-    sessions: "Listing sessions for this DC/category/week",
+    sessions: "Listing sessions for this DC/duty/week",
     avg_open_tank: "Mean open tank slots per session",
     avg_open_healer: "Mean open healer slots per session",
     avg_open_dps: "Mean open DPS slots per session",
@@ -40,6 +41,7 @@ WITH base AS (
   SELECT
     l.pf_region,
     l.pf_datacenter,
+    d.duty,
     l.content_category,
     l.is_high_end,
     dd.ffxiv_reset_week_start AS reset_week,
@@ -49,6 +51,7 @@ WITH base AS (
     l.bottleneck_role
   FROM ${ref("fct_listing_lifecycle")} l
   JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+  LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
   WHERE l.pf_region IS NOT NULL
     AND l.pf_datacenter IS NOT NULL
 )
@@ -56,6 +59,7 @@ WITH base AS (
 SELECT
   pf_region,
   pf_datacenter,
+  duty,
   content_category,
   is_high_end,
   reset_week,
@@ -76,4 +80,4 @@ SELECT
     ELSE 'dps'
   END AS most_common_bottleneck
 FROM base
-GROUP BY 1, 2, 3, 4, 5
+GROUP BY 1, 2, 3, 4, 5, 6

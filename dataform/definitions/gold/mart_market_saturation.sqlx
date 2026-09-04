@@ -3,12 +3,12 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_market_saturation",
-  description: "MARKET SATURATION / CONCURRENCY MART. Estimates how many other groups are recruiting for the same duty at the same time — a real signal for whether posting now means competing or having the field to yourself. Grain: duty × region × datacenter × reset_week × post_hour. Uses session [first_seen, last_seen] windows to count overlapping active listings per duty per hour. Sourced from fct_listing_lifecycle (one row per session). Each session contributes +1 to every hour bucket it spans. Maps to a line chart (concurrency over time) and a heatmap (concurrency by duty × hour of day).",
+  description: "PATTERN MART. Market saturation / concurrency by duty x region x datacenter x weekday x hour-of-day. Estimates how many other groups are recruiting for the same duty at the same time - a real signal for whether joining/posting now means competing or having the field to yourself. RECENT-WINDOW ONLY: restricted to the last PATTERN_WINDOW_WEEKS (8) reset weeks, anchored on the data frontier, so the concurrency pattern reflects the current tier instead of smearing across patches; window_start_date/window_end_date carry the bounds. Uses session [first_seen, last_seen] windows to count overlapping active listings per duty per hour. Sourced from fct_listing_lifecycle (one row per session). Each session contributes +1 to every hour bucket it spans. Maps to a weekday x hour heatmap - the 'best time to find an open party to join' sibling of mart_time_to_fill's 'best time to post' heatmap.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
-    nonNull: ["pf_region", "pf_datacenter", "duty", "reset_week", "post_hour"],
+    nonNull: ["pf_region", "pf_datacenter", "duty", "post_weekday", "post_hour"],
     rowConditions: [
       "sessions > 0",
       "avg_concurrent >= 1",
@@ -20,23 +20,36 @@ config {
     pf_datacenter: "Datacenter the listing was posted on",
     duty: "Duty name",
     content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
-    reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
+    post_weekday: "Day the listing was posted: 1=Sunday .. 7=Saturday",
+    day_name: "Weekday label, e.g. Tuesday",
+    is_weekend: "TRUE if posted on Sat/Sun",
     post_hour: "Hour of day (UTC) the listing was posted (0-23)",
     sessions: "Listing sessions posted in this bucket",
-    avg_concurrent: "Average number of listings for this duty active in this hour bucket",
+    avg_concurrent: "Average number of other listings for this duty active in this hour bucket",
     max_concurrent: "Maximum concurrent listings seen in this hour bucket",
     p75_concurrent: "75th percentile concurrent listings in this hour bucket",
-    zero_competition: "Share of hours with 0 other listings for this duty (standout chance)"
+    zero_competition: "Share of hours with 0 other listings for this duty (standout chance)",
+    window_start_date: "Start of the recent pattern window (data frontier - PATTERN_WINDOW_WEEKS)",
+    window_end_date: "End of the recent pattern window (data frontier = max first_seen_date)"
   }
 }
 
-WITH hourly AS (
+WITH win AS (
+  SELECT
+    MAX(first_seen_date) AS window_end_date,
+    DATE_SUB(MAX(first_seen_date), INTERVAL ${ffxiv.PATTERN_WINDOW_WEEKS} WEEK) AS window_start_date
+  FROM ${ref("fct_listing_lifecycle")}
+),
+
+hourly AS (
   SELECT
     l.pf_region,
     l.pf_datacenter,
     d.duty,
     l.content_category,
-    dd.ffxiv_reset_week_start AS reset_week,
+    EXTRACT(DAYOFWEEK FROM l.session_start) AS post_weekday,
+    dd.day_name,
+    dd.is_weekend,
     EXTRACT(HOUR FROM l.session_start) AS post_hour,
     l.session_start,
     l.last_seen,
@@ -47,20 +60,22 @@ WITH hourly AS (
   WHERE l.pf_region IS NOT NULL
     AND l.n_snapshots > 1
     AND l.outcome NOT IN ('flash', 'multiparty')
+    AND l.first_seen_date >= ${ffxiv.patternWindowCutoff(ref("fct_listing_lifecycle"))}
 ),
 
--- For each session, generate one row per hour it was active, then count overlaps
+-- For each session, count how many other sessions for the same duty overlap
+-- the hour bucket it was posted in (same overlap logic as before weekday was added).
 active_hours AS (
   SELECT
     h.pf_region,
     h.pf_datacenter,
     h.duty,
     h.content_category,
-    h.reset_week,
+    h.post_weekday,
+    h.day_name,
+    h.is_weekend,
     h.post_hour,
     h.duty_key,
-    -- A session is active in hour H if session_start <= H-end AND last_seen >= H-start
-    -- We count how many other sessions for the same duty overlap each session's hours
     (
       SELECT COUNT(*)
       FROM hourly h2
@@ -73,19 +88,26 @@ active_hours AS (
         AND DATE(GREATEST(h2.session_start, h.session_start)) = DATE(h.session_start)
     ) AS other_count
   FROM hourly h
+),
+
+agg AS (
+  SELECT
+    pf_region,
+    pf_datacenter,
+    duty,
+    content_category,
+    post_weekday,
+    day_name,
+    is_weekend,
+    post_hour,
+    COUNT(*) AS sessions,
+    ROUND(AVG(other_count), 1) AS avg_concurrent,
+    MAX(other_count) AS max_concurrent,
+    APPROX_QUANTILES(other_count, 4)[OFFSET(3)] AS p75_concurrent,
+    ROUND(COUNTIF(other_count = 0) * 100.0 / COUNT(*), 1) AS zero_competition
+  FROM active_hours
+  GROUP BY 1, 2, 3, 4, 5, 6, 7, 8
 )
 
-SELECT
-  pf_region,
-  pf_datacenter,
-  duty,
-  content_category,
-  reset_week,
-  post_hour,
-  COUNT(*) AS sessions,
-  ROUND(AVG(other_count), 1) AS avg_concurrent,
-  MAX(other_count) AS max_concurrent,
-  APPROX_QUANTILES(other_count, 4)[OFFSET(3)] AS p75_concurrent,
-  ROUND(COUNTIF(other_count = 0) * 100.0 / COUNT(*), 1) AS zero_competition
-FROM active_hours
-GROUP BY 1, 2, 3, 4, 5, 6
+SELECT agg.*, win.window_start_date, win.window_end_date
+FROM agg CROSS JOIN win
