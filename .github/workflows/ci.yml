@@ -21,6 +21,12 @@ jobs:
       - name: Install dev dependencies
         run: pip install -r requirements-dev.txt
 
+      - name: Install service dependencies
+        run: |
+          pip install -r services/duty_extractor/requirements.txt
+          pip install -r services/loader/requirements.txt
+          pip install -r services/scraper/requirements.txt
+
       - name: Ruff lint
         run: ruff check .
 
