@@ -53,15 +53,5 @@ Thumbs.db
 *.tmp
 
 
-# External tool artifacts
-.pi/
-
 # Backfill Database
 tools/xivpf.db
-
-
-CLAUDE.md
-QWEN.md
-.claude
-.qwen
-.pi/AGENTS.md
