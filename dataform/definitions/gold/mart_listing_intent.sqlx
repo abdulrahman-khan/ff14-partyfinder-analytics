@@ -12,7 +12,7 @@ config {
     rowConditions: [
       "sessions > 0",
       "practice + reclear_farm + blind_prog = sessions",
-      "practice_pct + reclear_farm_pct + blind_prog_pct = 100"
+      "ABS(practice_pct + reclear_farm_pct + blind_prog_pct - 100) < 0.2"
     ]
   },
   columns: {
@@ -41,7 +41,7 @@ WITH base AS (
     l.pf_datacenter,
     l.content_category,
     d.duty,
-    dd.reset_week,
+    dd.ffxiv_reset_week_start AS reset_week,
     CASE
       WHEN l.is_practice = 1 THEN 'practice'
       WHEN l.is_duty_complete = 1 THEN 'reclear_farm'

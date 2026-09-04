@@ -16,6 +16,7 @@ from streamlit.errors import StreamlitSecretNotFoundError
 BQ_PROJECT = os.environ.get("BQ_PROJECT", "ff14-pf-data")
 BQ_DATASET = os.environ.get("BQ_DATASET", "gold")
 CACHE_TTL = int(os.environ.get("CACHE_TTL", "3600"))  # data is refreshed manually; stale is fine
+CACHE_VERSION = "2026-08-15b"  # bump to bust stale @st.cache_data when schemas change
 
 # 1=Sunday .. 7=Saturday, matching mart_activity_heatmap.post_weekday
 WEEKDAY_ORDER = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -36,8 +37,9 @@ def get_client() -> bigquery.Client:
 
 
 @st.cache_data(ttl=CACHE_TTL)
-def load(table: str) -> pd.DataFrame:
-    """One query per mart per cold start; everything downstream is in-memory pandas."""
+def load(table: str, _version: str = CACHE_VERSION) -> pd.DataFrame:
+    """One query per mart per cold start; everything downstream is in-memory pandas.
+    _version is not used in the query but forces cache invalidation when bumped."""
     return get_client().query(
         f"SELECT * FROM `{BQ_PROJECT}.{BQ_DATASET}.{table}`"
     ).to_dataframe()

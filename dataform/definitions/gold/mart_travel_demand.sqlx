@@ -12,7 +12,7 @@ config {
     rowConditions: [
       "sessions > 0",
       "local + traveller + voyager = sessions",
-      "local_pct + traveller_pct + voyager_pct = 100"
+      "ABS(local_pct + traveller_pct + voyager_pct - 100) < 0.2"
     ]
   },
   columns: {
@@ -31,17 +31,18 @@ config {
 }
 
 SELECT
-  pf_region,
-  pf_datacenter,
-  reset_week,
+  l.pf_region,
+  l.pf_datacenter,
+  dd.ffxiv_reset_week_start AS reset_week,
   COUNT(*) AS sessions,
-  COUNTIF(is_voyager = 0 AND is_traveller = 0) AS local,
-  COUNTIF(is_voyager = 0 AND is_traveller = 1) AS traveller,
-  COUNTIF(is_voyager = 1) AS voyager,
-  ROUND(COUNTIF(is_voyager = 0 AND is_traveller = 0) * 100.0 / COUNT(*), 1) AS local_pct,
-  ROUND(COUNTIF(is_voyager = 0 AND is_traveller = 1) * 100.0 / COUNT(*), 1) AS traveller_pct,
-  ROUND(COUNTIF(is_voyager = 1) * 100.0 / COUNT(*), 1) AS voyager_pct,
-  ROUND(COUNTIF(is_voyager = 1 OR is_traveller = 1) * 100.0 / COUNT(*), 1) AS imported_pct
-FROM ${ref("fct_listing_lifecycle")}
-WHERE pf_region IS NOT NULL
+  COUNTIF(l.is_voyager = 0 AND l.is_traveller = 0) AS local,
+  COUNTIF(l.is_voyager = 0 AND l.is_traveller = 1) AS traveller,
+  COUNTIF(l.is_voyager = 1) AS voyager,
+  ROUND(COUNTIF(l.is_voyager = 0 AND l.is_traveller = 0) * 100.0 / COUNT(*), 1) AS local_pct,
+  ROUND(COUNTIF(l.is_voyager = 0 AND l.is_traveller = 1) * 100.0 / COUNT(*), 1) AS traveller_pct,
+  ROUND(COUNTIF(l.is_voyager = 1) * 100.0 / COUNT(*), 1) AS voyager_pct,
+  ROUND(COUNTIF(l.is_voyager = 1 OR l.is_traveller = 1) * 100.0 / COUNT(*), 1) AS imported_pct
+FROM ${ref("fct_listing_lifecycle")} l
+LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+WHERE l.pf_region IS NOT NULL
 GROUP BY 1, 2, 3

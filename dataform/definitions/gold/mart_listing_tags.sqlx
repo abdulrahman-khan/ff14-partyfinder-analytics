@@ -3,21 +3,21 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_listing_tags",
-  description: "LISTING DESCRIPTION TAGS MART. Reports the share of sessions that carry each description tag: loot rules, one-per-job, duty completion variants, weekly unclaimed. Grain: content_category × region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session); tags are MAX-over-session (if any snapshot during the listing carried the tag, the session is tagged). Maps to a heatmap or bar chart showing how tag prevalence changes over time and across DCs.",
+  description: "LISTING DESCRIPTION TAGS MART. Reports the share of sessions that carry each description tag: loot rules, one-per-job, duty completion variants, weekly unclaimed. Grain: content_category × duty × region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session); tags are MAX-over-session (if any snapshot during the listing carried the tag, the session is tagged). Maps to a heatmap or bar chart showing how tag prevalence changes over time and across DCs.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter", "content_category"]
   },
   assertions: {
-    nonNull: ["pf_region", "content_category"],
+    nonNull: ["pf_region", "content_category", "duty"],
     rowConditions: [
-      "sessions > 0",
-      "pct BETWEEN 0 AND 100"
+      "sessions > 0"
     ]
   },
   columns: {
     pf_region: "Region the listing was posted in",
     pf_datacenter: "Datacenter the listing was posted on",
     content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
+    duty: "Duty name",
     reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
     sessions: "Total listing sessions in this bucket",
     is_loot: "Sessions with [loot] tag",
@@ -36,23 +36,26 @@ config {
 }
 
 SELECT
-  pf_region,
-  pf_datacenter,
-  content_category,
-  reset_week,
+  l.pf_region,
+  l.pf_datacenter,
+  l.content_category,
+  d.duty,
+  dd.ffxiv_reset_week_start AS reset_week,
   COUNT(*) AS sessions,
-  SUM(is_loot) AS is_loot,
-  SUM(is_clear) AS is_clear,
-  SUM(is_one_per_job) AS is_one_per_job,
-  SUM(is_weekly_unclaimed) AS is_weekly_unclaimed,
-  SUM(is_duty_completion) AS is_duty_completion,
-  SUM(is_duty_incomplete) AS is_duty_incomplete,
-  ROUND(SUM(is_loot) * 100.0 / COUNT(*), 1) AS loot_pct,
-  ROUND(SUM(is_clear) * 100.0 / COUNT(*), 1) AS clear_pct,
-  ROUND(SUM(is_one_per_job) * 100.0 / COUNT(*), 1) AS one_per_job_pct,
-  ROUND(SUM(is_weekly_unclaimed) * 100.0 / COUNT(*), 1) AS weekly_unclaimed_pct,
-  ROUND(SUM(is_duty_completion) * 100.0 / COUNT(*), 1) AS duty_completion_pct,
-  ROUND(SUM(is_duty_incomplete) * 100.0 / COUNT(*), 1) AS duty_incomplete_pct
-FROM ${ref("fct_listing_lifecycle")}
-WHERE pf_region IS NOT NULL
-GROUP BY 1, 2, 3, 4
+  SUM(l.is_loot) AS is_loot,
+  SUM(l.is_clear) AS is_clear,
+  SUM(l.is_one_per_job) AS is_one_per_job,
+  SUM(l.is_weekly_unclaimed) AS is_weekly_unclaimed,
+  SUM(l.is_duty_completion) AS is_duty_completion,
+  SUM(l.is_duty_incomplete) AS is_duty_incomplete,
+  ROUND(SUM(l.is_loot) * 100.0 / COUNT(*), 1) AS loot_pct,
+  ROUND(SUM(l.is_clear) * 100.0 / COUNT(*), 1) AS clear_pct,
+  ROUND(SUM(l.is_one_per_job) * 100.0 / COUNT(*), 1) AS one_per_job_pct,
+  ROUND(SUM(l.is_weekly_unclaimed) * 100.0 / COUNT(*), 1) AS weekly_unclaimed_pct,
+  ROUND(SUM(l.is_duty_completion) * 100.0 / COUNT(*), 1) AS duty_completion_pct,
+  ROUND(SUM(l.is_duty_incomplete) * 100.0 / COUNT(*), 1) AS duty_incomplete_pct
+FROM ${ref("fct_listing_lifecycle")} l
+LEFT JOIN ${ref("dim_duties")} d ON d.duty_key = l.duty_key
+LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
+WHERE l.pf_region IS NOT NULL
+GROUP BY 1, 2, 3, 4, 5

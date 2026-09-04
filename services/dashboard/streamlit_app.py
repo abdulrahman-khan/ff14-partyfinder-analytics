@@ -19,9 +19,9 @@ from streamlit_echarts import st_echarts
 
 from data import DEFAULT_DATACENTER, DEFAULT_REGION, WEEKDAY_ORDER, load
 from theme import (
-    BLUE,
+    ACCENT_BLUE as BLUE,
+    ACCENT_GOLD as GOLD,
     CURRENT_SAVAGE_TIER,
-    GOLD,
     HEATMAP_SCHEME,
     OUTCOME_COLORS,
     ROLE_COLORS,
@@ -268,14 +268,14 @@ def render_timing(ttf_dc, datacenter):
     if ttf_df.empty:
         st.info("No data for this selection.")
     else:
-        ttf_dist = ttf_df.agg(
-            lt_15=("ttf_lt_15", "sum"),
-            t_15_30=("ttf_15_30", "sum"),
-            t_30_60=("ttf_30_60", "sum"),
-            t_60_120=("ttf_60_120", "sum"),
-            gt_120=("ttf_gt_120", "sum"),
-            censored=("censored_pct", "first"),
-        )
+        ttf_dist = {
+            "lt_15": int(ttf_df["ttf_lt_15"].sum()),
+            "t_15_30": int(ttf_df["ttf_15_30"].sum()),
+            "t_30_60": int(ttf_df["ttf_30_60"].sum()),
+            "t_60_120": int(ttf_df["ttf_60_120"].sum()),
+            "gt_120": int(ttf_df["ttf_gt_120"].sum()),
+            "censored": float(ttf_df["censored_pct"].iloc[0]),
+        }
         total_filled = int(ttf_dist["lt_15"] + ttf_dist["t_15_30"] + ttf_dist["t_30_60"] + ttf_dist["t_60_120"] + ttf_dist["gt_120"])
         if total_filled == 0:
             st.info("No filled sessions in this selection.")
@@ -629,9 +629,9 @@ def render_outcomes(funnel_dc, datacenter):
 
     # --- ECharts Sankey diagram ---
     st.markdown("**Outcome flow**")
-    categories = [{"name": o} for o in order]
+    source_cats = long["content_category"].dropna().unique().tolist()
+    categories = [{"name": s} for s in source_cats] + [{"name": o} for o in order]
     links = []
-    source_cat = datacenter  # each category is a source node
     for _, row in long.iterrows():
         links.append({
             "source": row["content_category"],
@@ -649,24 +649,8 @@ def render_outcomes(funnel_dc, datacenter):
             "itemStyle": {"borderWidth": 0},
             "label": {"color": "#E6E6E6"},
             "nodeAlign": "left",
-            "levels": [
-                {
-                    "depth": 0,
-                    "itemStyle": {"color": BLUE},
-                    "lineStyle": {"color": "source", "opacity": 0.6},
-                },
-                {
-                    "depth": 1,
-                    "itemStyle": {
-                        "color": [OUTCOME_COLORS[o] for o in order],
-                    },
-                    "lineStyle": {"color": "target", "opacity": 0.3},
-                },
-            ],
-            "data": [
-                *categories,
-                *[{"name": o, "itemStyle": {"color": OUTCOME_COLORS[o]}} for o in order],
-            ],
+            "layoutIterations": 32,
+            "data": categories,
             "links": links,
         }],
     }
@@ -894,7 +878,7 @@ def render_ilvl_gating(ilvl_dc, datacenter):
         .mark_line(point=True, color=ACCENT_PURPLE)
         .encode(
             x=alt.X("reset_week:T", title="Reset week"),
-            y=alt.Y("avg_ilvl:Q", title="Avg min ilvl", color=alt.value(ACCENT_PURPLE)),
+            y=alt.Y("avg_ilvl:Q", title="Avg min ilvl"),
             tooltip=[
                 alt.Tooltip("reset_week:T", title="Week"),
                 alt.Tooltip("avg_ilvl:Q", title="Avg min ilvl", format=".0f"),
@@ -908,7 +892,7 @@ def render_ilvl_gating(ilvl_dc, datacenter):
         .mark_line(point=True, color=ACCENT_GREEN)
         .encode(
             x=alt.X("reset_week:T", title="Reset week"),
-            y=alt.Y("fill_rate_pct:Q", title="Fill rate (%)", scale=alt.Scale(domain=[0, 100]), color=alt.value(ACCENT_GREEN)),
+            y=alt.Y("fill_rate_pct:Q", title="Fill rate (%)", scale=alt.Scale(domain=[0, 100])),
             tooltip=[
                 alt.Tooltip("reset_week:T", title="Week"),
                 alt.Tooltip("fill_rate_pct:Q", title="Fill rate", format=".1f"),
@@ -984,7 +968,7 @@ def render_listing_tags(tags_dc, datacenter):
         col.metric(f"{label}%", f"{val:.0f}%")
 
     st.divider()
-    st.markdown("**Tag prevalence by duty** (average %)")
+    st.markdown("**Tag prevalence by duty** (average %, top 20 duties by avg tag %)")
     duty_tags = (
         cat_df.groupby("duty", as_index=False)[tag_cols].mean()
         .melt(id_vars=["duty"], value_vars=tag_cols, var_name="tag", value_name="pct")
@@ -992,6 +976,11 @@ def render_listing_tags(tags_dc, datacenter):
     )
     duty_tags["tag_label"] = duty_tags["tag"].map(dict(zip(tag_cols, tag_labels)))
     tag_order = tag_labels
+
+    # Limit to top 20 duties by average tag percentage to avoid overcrowding
+    duty_avg = duty_tags.groupby("duty")["pct"].mean().sort_values(ascending=False)
+    top_duties = duty_avg.head(20).index.tolist()
+    duty_tags = duty_tags[duty_tags["duty"].isin(top_duties)].sort_values("pct", ascending=False)
 
     chart = (
         alt.Chart(duty_tags)
@@ -1006,7 +995,7 @@ def render_listing_tags(tags_dc, datacenter):
                 alt.Tooltip("pct:Q", title="Avg prevalence", format=".1f"),
             ],
         )
-        .properties(height=360)
+        .properties(height=400)
     )
     st.altair_chart(style_chart(chart), width="stretch")
 
@@ -1152,6 +1141,11 @@ ttf_dc = dc_mask(time_to_fill)
 rd_dc = dc_mask(role_demand)
 duty_dc = dc_mask(duty_trends)
 role_dc = dc_mask(role_trends)
+intent_dc = dc_mask(intent)
+travel_dc = dc_mask(travel)
+ilvl_dc = dc_mask(ilvl)
+tags_dc = dc_mask(tags)
+sat_dc = dc_mask(saturation)
 
 # Reset-week range slider lives in the sidebar; drives the trend tabs.
 weeks = sorted(duty_dc["reset_week"].dropna().unique())

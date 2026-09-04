@@ -36,7 +36,7 @@ WITH hourly AS (
     l.pf_datacenter,
     d.duty,
     l.content_category,
-    dd.reset_week,
+    dd.ffxiv_reset_week_start AS reset_week,
     EXTRACT(HOUR FROM l.session_start) AS post_hour,
     l.session_start,
     l.last_seen,

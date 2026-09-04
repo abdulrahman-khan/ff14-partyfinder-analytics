@@ -3,7 +3,7 @@ config {
   schema: "gold",
   tags: ["gold"],
   name: "mart_ilvl_gating",
-  description: "GEAR-GATE TREND MART. Tracks how the minimum item-level gate on listings evolves over time and correlates with fill speed. Grain: duty × region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session). Reports avg/min/p90 ilvl per week, plus fill_rate_pct and median time-to-fill from the same week. Answers 'does this duty's ilvl requirement ease off as the tier ages, and do over-geared listings fill faster?' — a real prog-community question. Maps to a line chart (ilvl trend) overlaid with fill rate on a secondary axis.",
+  description: "GEAR-GATE TREND MART. Tracks how the minimum item-level gate on listings evolves over time and correlates with fill speed. Grain: duty × region × datacenter × reset_week. Sourced from fct_listing_lifecycle (one row per session). Reports avg/min/p90 ilvl per week, plus fill_rate_pct and median time-to-fill from the same week. Answers 'does this duty's ilvl requirement ease off as the tier ages, and do over-geared listings fill faster?' - a real prog-community question. Maps to a line chart (ilvl trend) overlaid with fill rate on a secondary axis.",
   bigquery: {
     clusterBy: ["pf_region", "pf_datacenter"]
   },
@@ -19,6 +19,7 @@ config {
     pf_region: "Region the listing was posted in",
     pf_datacenter: "Datacenter the listing was posted on",
     duty: "Duty name",
+    content_category: "savage / ultimate / extreme / unreal / alliance / chaotic / other",
     reset_week: "FFXIV reset week (Tuesday 08:00 UTC)",
     sessions: "Total listing sessions in this bucket",
     avg_ilvl: "Average min_ilvl across sessions",
@@ -35,7 +36,8 @@ SELECT
   l.pf_region,
   l.pf_datacenter,
   d.duty,
-  dd.reset_week,
+  l.content_category,
+  dd.ffxiv_reset_week_start AS reset_week,
   COUNT(*) AS sessions,
   ROUND(AVG(l.min_ilvl), 0) AS avg_ilvl,
   MIN(l.min_ilvl) AS min_ilvl,
@@ -50,4 +52,4 @@ LEFT JOIN ${ref("dim_date")} dd ON dd.date = l.first_seen_date
 WHERE l.pf_region IS NOT NULL
   AND l.min_ilvl IS NOT NULL
   AND l.slots_total <= 8
-GROUP BY 1, 2, 3, 4
+GROUP BY 1, 2, 3, 4, 5
