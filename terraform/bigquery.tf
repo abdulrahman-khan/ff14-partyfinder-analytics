@@ -331,5 +331,3 @@ resource "google_bigquery_dataset_iam_member" "bronze_readers" {
   role       = "roles/bigquery.dataViewer"
   member     = "user:${var.bronze_reader_group}"
 }
-
-

@@ -4,6 +4,3 @@ config {
   name: "dim_worlds",
   description: "World reference dimension - one row per world with datacenter and region",
 }
-
-
-

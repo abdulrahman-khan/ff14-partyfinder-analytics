@@ -5,4 +5,3 @@ SELECT
   TRIM(datacenter, "'") AS datacenter,
   TRIM(region,     "'") AS region
 FROM `ff14-pf-data.bronze.raw_worlds`
-

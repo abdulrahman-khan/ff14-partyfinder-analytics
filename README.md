@@ -61,7 +61,7 @@ The pipeline is a classic ingestion → storage → transformation → serving f
 
 ### How it flows
 
-1. **Ingest.** Cloud Scheduler fires the scraper every 15 minutes, it parses each listing into records and writes one timestamped JSON file to Cloud Storage. 
+1. **Ingest.** Cloud Scheduler fires the scraper every 15 minutes, it parses each listing into records and writes one timestamped JSON file to Cloud Storage.
 2. **Load.** The loader flattens any pending lake files into the BigQuery bronze layer. In production it will run hourly, but currently configured to run on demand to keep costs near zero. The loader also kicks off the transform pipeline on success.
 3. **Orchestrate.** Cloud Workflows runs duty-extractor first, then the Dataform runner.
 4. **Transform.** Dataform executes the SQL models that clean, key, and aggregate the data into silver and gold.
