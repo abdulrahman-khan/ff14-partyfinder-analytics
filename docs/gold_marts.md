@@ -98,5 +98,5 @@ Notes:
 ## Data quality
 
 - `silver.assert_lifecycle_freshness` — blocking assertion; fails if the newest session is > 3h old.
-- `silver.qa_unmatched_worlds` — non-blocking monitoring view; lists `raw_listings.world` values that don't match `dim_worlds` (these silently drop from region/DC rollups — see improvements.md #6).
+- `silver.qa_unmatched_worlds` — non-blocking monitoring view; lists `raw_listings.world` values that don't match `dim_worlds` (these silently drop from region/DC rollups — see [`improvements.md`](improvements.md) #2).
 - Each mart carries `rowConditions` assertions (shares/rates within 0–100, non-negative durations).
