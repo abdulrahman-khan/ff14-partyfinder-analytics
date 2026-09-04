@@ -28,36 +28,31 @@ This project captures that stream over time and turns it into questions a player
 ## System architecture
 
 The pipeline is a classic ingestion → storage → transformation → serving flow, built entirely from managed GCP services.
+Only the scraper is scheduled - the loader runs on demand and, on success, fires the pipeline workflow itself.
 
+Legend: 🎮 external source · ⏰ trigger · ☁️ Cloud Run · 🪣 object storage (GCS) · 🗄️ BigQuery · ⚙️ orchestration.
+
+```mermaid
+flowchart TD
+    classDef source fill:#6b7280,stroke:#374151,color:#fff
+    classDef trigger fill:#f59e0b,stroke:#92600a,color:#1a1a1a
+    classDef compute fill:#1a73e8,stroke:#174ea6,color:#fff
+    classDef storage fill:#34a853,stroke:#1e7e34,color:#fff
+    classDef orchestration fill:#9333ea,stroke:#5b21b6,color:#fff
+
+    Source["🎮 xivpf.com"]:::source --> Scraper["☁️ Cloud Run: scraper"]:::compute
+    CS["⏰ Cloud Scheduler<br/>every 15 min"]:::trigger --> Scraper
+    Scraper -->|parse HTML| GCS[("🪣 GCS: ff14-pf-data-raw<br/>append-only")]:::storage
+    GCS --> Loader["☁️ Cloud Run: loader<br/>(on demand)"]:::compute
+    Loader -->|insert| BronzeListings[("🗄️ bronze.raw_listings")]:::storage
+    Loader -.->|on success| Workflow{{"⚙️ Cloud Workflows<br/>ff14-pf-pipeline"}}:::orchestration
+    Workflow --> DutyExtractor["☁️ Cloud Run: duty-extractor"]:::compute
+    DutyExtractor --> BronzeDuties[("🗄️ bronze.raw_duties")]:::storage
+    DutyExtractor -.->|then| DataformRunner["☁️ Cloud Run: dataform-runner"]:::compute
+    DataformRunner --> SilverGold[("🗄️ silver.* → gold.*")]:::storage
 ```
-                                                          xivpf.com (public HTML)
-                                                                  │
-                                              Cloud Scheduler ──► every 15 min
-                                                                  │
-                                                                  ▼
-                                                    Cloud Run job: scraper
-                                                    (HTML → structured JSON)
-                                                                  │
-                                                                  ▼
-                                              Cloud Storage (data lake, immutable)
-                                            gs://ff14-pf-data-raw/raw/YYYY/MM/DD/HHMMSS.json
-                                                                  │
-                                                                  ▼
-                                                    Cloud Run job: loader        ◄── run on demand (cost control)
-                                              (new files → BigQuery bronze layer)
-                                                                  │
-                                                                  ▼
-                                                      Cloud Workflows orchestrates
-                                                                  │
-                  ┌────────────────┴────────────────┐
-                  ▼                                                                                            ▼
-      Cloud Run job: duty-extractor                           Cloud Run job: dataform-runner
-        (catalog of duties → bronze)                            (SQL transforms via Dataform)
-                                                                                                              │
-                                                                                                              ▼
-                                                                                        BigQuery: silver → gold
-                                                                                      (cleaned facts → analytics marts)
-```
+
+See [docs/data_flow.md](docs/data_flow.md) for the medallion lineage diagram (how data is cleaned and reshaped within BigQuery).
 
 ### How it flows
 

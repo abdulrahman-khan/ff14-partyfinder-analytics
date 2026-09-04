@@ -8,9 +8,10 @@ Infrastructure is fully managed with Terraform.
 - **GCP project:** `ff14-pf-data`
 - **Region:** `us-central1`
 
-This is the canonical reference for repo layout, data flow, and schema. For the gold marts
-and the lifecycle model see [`gold_marts.md`](gold_marts.md); for the failure-alerting and
-logging setup see [`observability.md`](observability.md); for the open backlog see
+This is the canonical reference for repo layout, data flow, and schema. For Mermaid diagrams
+of the orchestration and medallion lineage see [`data_flow.md`](data_flow.md); for the gold
+marts and the lifecycle model see [`gold_marts.md`](gold_marts.md); for the failure-alerting
+and logging setup see [`observability.md`](observability.md); for the open backlog see
 [`improvements.md`](improvements.md).
 
 ---
