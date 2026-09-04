@@ -10,7 +10,8 @@ DUTIES_SCHEMA := duty:STRING,content_category:STRING,is_savage:INTEGER,is_ultima
         push-scraper push-loader push-duty push-dataform push-all \
         release-scraper release-loader release-duty release-dataform \
         deploy run-scraper run-loader run-duty run-dataform-runner dataform-run dataform-run-gold dataform-refresh docker-auth \
-        upload-duties refresh-dim-duties load-duties load-worlds run-dashboard
+        upload-duties refresh-dim-duties load-duties load-worlds run-dashboard \
+        install-dev install-hooks lint test
 
 help:
 	@echo "Build:    build-scraper build-loader build-duty build-dataform build-all"
@@ -23,6 +24,7 @@ help:
 	@echo "Worlds:   load-worlds   (worlds.csv -> dim_worlds)"
 	@echo "Dashboard: run-dashboard (streamlit summary app, local)"
 	@echo "Auth:     docker-auth   (one-time Artifact Registry docker login)"
+	@echo "Dev:      install-dev (dev deps) install-hooks (pre-commit) lint (ruff) test (pytest)"
 
 docker-auth:
 	gcloud auth configure-docker $(REGION)-docker.pkg.dev
@@ -98,3 +100,14 @@ load-worlds:
 # --- dashboard (Streamlit, local run; hosted on Streamlit Community Cloud) ---
 run-dashboard:
 	streamlit run services/dashboard/streamlit_app.py
+
+# --- dev tooling ---
+install-dev:
+	pip install -r requirements-dev.txt
+install-hooks:
+	pre-commit install
+lint:
+	ruff check .
+	ruff format --check .
+test:
+	pytest
