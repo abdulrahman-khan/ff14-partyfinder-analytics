@@ -9,11 +9,15 @@ There is no per-interaction BigQuery traffic, so viewer activity cannot run up q
 Hosted free on [Streamlit Community Cloud](https://streamlit.io/cloud); one query per mart per cold
 start reads only public aggregate data.
 
-The main page (`streamlit_app.py`) puts global filters (Region, Data Center, trend date-range) in the
-sidebar and organizes the marts into five tabs - **Overview**, **When to Post**, **Duty Trends**,
-**Roles**, and **Fill Outcomes** - one analytical question each. A second page (`pages/1_FAQ.py`)
-covers freshness and anonymity. Shared BigQuery loading lives in `data.py`. The look is documented in
-[STYLING.md](STYLING.md) (Eorzean Night theme) - read it before restyling the dashboard.
+The main page (`streamlit_app.py`, "Raid Finder") is built for one persona: a raider currently
+progging a specific Savage or Ultimate fight. Its sidebar chains Region -> Data Center -> **My
+Fight** -> **My Role**, and every section below - prime hours to post vs. to find an open party,
+role bottleneck, popularity across the patch, gear-gate trend, prog/farm intent - scopes to that
+one selection. General, non-fight-specific signals (Overview, Fill Outcomes, cross-DC Travel,
+listing description Tags) live on `pages/2_All_Analytics.py` instead, filtered only by Region/DC.
+`pages/1_FAQ.py` covers freshness and anonymity. Shared BigQuery loading lives in `data.py`. The
+look is documented in [STYLING.md](STYLING.md) (Eorzean Night theme) - read it before restyling
+the dashboard.
 
 ## Run locally
 
