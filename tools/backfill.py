@@ -1,9 +1,9 @@
 """One-off load of the old SQLite scrape history into bronze.raw_listings."""
 
-import sqlite3
 import json
 import logging
-from datetime import timezone, datetime
+import sqlite3
+from datetime import UTC, datetime
 
 from google.cloud import bigquery
 
@@ -29,7 +29,7 @@ def convert_row(row):
         if not ts:
             return None
         try:
-            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=timezone.utc).isoformat()
+            return datetime.strptime(ts, "%Y-%m-%d %H:%M:%S").replace(tzinfo=UTC).isoformat()
         except ValueError:
             return None
 

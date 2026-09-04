@@ -2,7 +2,7 @@ import argparse
 import json
 import subprocess
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 PROJECT = "ff14-pf-data"
 JOB = "ff14-pf-scraper"
@@ -23,13 +23,20 @@ def gcloud(*args):
 
 
 def log_errors(hours, severity, limit):
-    since = (datetime.now(timezone.utc) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    since = (datetime.now(UTC) - timedelta(hours=hours)).strftime("%Y-%m-%dT%H:%M:%SZ")
     filt = (
         f'resource.type="cloud_run_job" resource.labels.job_name="{JOB}" '
         f'severity>={severity} timestamp>="{since}"'
     )
-    out = gcloud("logging", "read", filt, f"--project={PROJECT}",
-                 f"--limit={limit}", "--format=json", "--order=desc")
+    out = gcloud(
+        "logging",
+        "read",
+        filt,
+        f"--project={PROJECT}",
+        f"--limit={limit}",
+        "--format=json",
+        "--order=desc",
+    )
     entries = json.loads(out) if out.strip() else []
 
     print(f"\nCloud Logging: {severity}+ in the last {hours}h")
@@ -45,15 +52,15 @@ def log_errors(hours, severity, limit):
 def dead_letters(hours):
     print(f"\nDead-letter records in the last {hours}h")
     out = gcloud("storage", "ls", f"gs://{BUCKET}/dead-letter/**")
-    cutoff = datetime.now(timezone.utc) - timedelta(hours=hours)
+    cutoff = datetime.now(UTC) - timedelta(hours=hours)
 
     recent = []
     for path in out.split():
         if not path.endswith(".json"):
             continue
-        stamp = path.rsplit("dead-letter/", 1)[-1][:-len(".json")]
+        stamp = path.rsplit("dead-letter/", 1)[-1][: -len(".json")]
         try:
-            when = datetime.strptime(stamp, "%Y/%m/%d/%H%M%S").replace(tzinfo=timezone.utc)
+            when = datetime.strptime(stamp, "%Y/%m/%d/%H%M%S").replace(tzinfo=UTC)
         except ValueError:
             continue
         if when >= cutoff:

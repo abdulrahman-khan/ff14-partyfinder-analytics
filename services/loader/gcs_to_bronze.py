@@ -1,10 +1,10 @@
-import os
 import json
 import logging
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
 
-from google.cloud import storage as gcs
 from google.cloud import bigquery
+from google.cloud import storage as gcs
 from google.cloud.workflows.executions_v1 import ExecutionsClient
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -61,7 +61,7 @@ def claim_file(bq_client, blob):
     row = {
         "file_name": blob.name,
         "status": "processing",
-        "started_at": datetime.now(timezone.utc).isoformat(),
+        "started_at": datetime.now(UTC).isoformat(),
         "completed_at": None,
         "failed_at": None,
         "error": None,
@@ -79,14 +79,16 @@ def complete_file(bq_client, blob):
 
 def fail_file(bq_client, blob, error, context=""):
     _insert_file_status(
-        bq_client, blob.name, "failed",
+        bq_client,
+        blob.name,
+        "failed",
         error=f"[{context}] {error}" if context else str(error),
     )
 
 
 def _insert_file_status(bq_client, file_name, status, error=None):
     table = f"{BQ_PROJECT}.{BQ_DATASET}.file_loads"
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
     row = {
         "file_name": file_name,
         "status": status,
@@ -109,23 +111,27 @@ def flatten_file(blob):
 
     rows = []
     for item in payload.get("listings", []):
-        rows.append({
-            "listing_id": item.get("listing_id"),
-            "duty": item.get("duty"),
-            "category": item.get("category"),
-            "description": item.get("description"),
-            "creator": item.get("creator"),
-            "creator_server": item.get("creator_server"),
-            "world": item.get("world"),
-            "min_ilvl": item.get("min_ilvl"),
-            "slots_filled": item.get("slots_filled"),
-            "slots_total": item.get("slots_total"),
-            "slot_details": json.dumps(item["slot_details"]) if item.get("slot_details") else None,
-            "expires_in": item.get("expires_in"),
-            "updated_at": item.get("updated_at"),
-            "scraped_at": item.get("scraped_at") or scraped_at,
-            "source_file": source,
-        })
+        rows.append(
+            {
+                "listing_id": item.get("listing_id"),
+                "duty": item.get("duty"),
+                "category": item.get("category"),
+                "description": item.get("description"),
+                "creator": item.get("creator"),
+                "creator_server": item.get("creator_server"),
+                "world": item.get("world"),
+                "min_ilvl": item.get("min_ilvl"),
+                "slots_filled": item.get("slots_filled"),
+                "slots_total": item.get("slots_total"),
+                "slot_details": json.dumps(item["slot_details"])
+                if item.get("slot_details")
+                else None,
+                "expires_in": item.get("expires_in"),
+                "updated_at": item.get("updated_at"),
+                "scraped_at": item.get("scraped_at") or scraped_at,
+                "source_file": source,
+            }
+        )
     return rows
 
 

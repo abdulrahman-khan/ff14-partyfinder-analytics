@@ -40,6 +40,4 @@ def get_client() -> bigquery.Client:
 def load(table: str, _version: str = CACHE_VERSION) -> pd.DataFrame:
     """One query per mart per cold start; everything downstream is in-memory pandas.
     _version is not used in the query but forces cache invalidation when bumped."""
-    return get_client().query(
-        f"SELECT * FROM `{BQ_PROJECT}.{BQ_DATASET}.{table}`"
-    ).to_dataframe()
+    return get_client().query(f"SELECT * FROM `{BQ_PROJECT}.{BQ_DATASET}.{table}`").to_dataframe()

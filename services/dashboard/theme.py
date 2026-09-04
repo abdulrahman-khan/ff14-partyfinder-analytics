@@ -9,20 +9,20 @@ import streamlit as st
 
 # ------------------------------------------------------------------ Palette
 # Professional dark analytics palette - high contrast, accessible
-BG_PRIMARY = "#0B0F14"       # page background
-BG_SECONDARY = "#151B24"     # panels, sidebar, cards
-BG_TERTIARY = "#1C2533"      # hover states, active elements
-BORDER = "#2A3644"           # borders, gridlines
-TEXT_PRIMARY = "#E8EDF4"     # headings, values
-TEXT_SECONDARY = "#8B95A8"   # captions, axis labels, muted text
-TEXT_MUTED = "#5C6678"       # placeholders, disabled
+BG_PRIMARY = "#0B0F14"  # page background
+BG_SECONDARY = "#151B24"  # panels, sidebar, cards
+BG_TERTIARY = "#1C2533"  # hover states, active elements
+BORDER = "#2A3644"  # borders, gridlines
+TEXT_PRIMARY = "#E8EDF4"  # headings, values
+TEXT_SECONDARY = "#8B95A8"  # captions, axis labels, muted text
+TEXT_MUTED = "#5C6678"  # placeholders, disabled
 
 # Accent colors - gold for primary metrics, blue for secondary
-ACCENT_GOLD = "#D4A843"      # KPI values, highlights, active states
-ACCENT_BLUE = "#5BA4E6"      # categorical bars, secondary elements
-ACCENT_GREEN = "#4ADE80"     # positive indicators, filled outcomes
-ACCENT_RED = "#F87171"       # negative indicators, expired outcomes
-ACCENT_PURPLE = "#A78BFA"    # tertiary accents
+ACCENT_GOLD = "#D4A843"  # KPI values, highlights, active states
+ACCENT_BLUE = "#5BA4E6"  # categorical bars, secondary elements
+ACCENT_GREEN = "#4ADE80"  # positive indicators, filled outcomes
+ACCENT_RED = "#F87171"  # negative indicators, expired outcomes
+ACCENT_PURPLE = "#A78BFA"  # tertiary accents
 
 # Sequential scheme for intensity heatmaps - viridis is perceptually uniform
 HEATMAP_SCHEME = "viridis"
@@ -57,8 +57,7 @@ CURRENT_SAVAGE_TIER = {
 def style_chart(chart: alt.Chart) -> alt.Chart:
     """Apply dark theme to an Altair chart."""
     return (
-        chart
-        .configure_view(strokeWidth=0, fill="transparent")
+        chart.configure_view(strokeWidth=0, fill="transparent")
         .configure(background="transparent")
         .configure_axis(
             labelColor=TEXT_SECONDARY,
@@ -107,9 +106,9 @@ def inject_css() -> None:
         <style>
         /* === Global typography === */
         @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-        
+
         * {{ font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; }}
-        
+
         h1, h2, h3, h4 {{
             letter-spacing: -0.02em;
             font-weight: 700;
@@ -118,13 +117,13 @@ def inject_css() -> None:
         h1 {{ font-size: 1.8rem; }}
         h2 {{ font-size: 1.35rem; }}
         h3 {{ font-size: 1.15rem; }}
-        
+
         /* === Captions === */
         [data-testid="stCaptionContainer"] {{
             color: {TEXT_SECONDARY};
             font-size: 0.85rem;
         }}
-        
+
         /* === KPI Cards === */
         [data-testid="stMetric"] {{
             background: {BG_SECONDARY};
@@ -148,7 +147,7 @@ def inject_css() -> None:
             letter-spacing: 0.05em;
             font-weight: 500;
         }}
-        
+
         /* === Tabbed Navigation === */
         .stTabs [data-baseweb="tab-list"] {{
             gap: 2px;
@@ -176,7 +175,7 @@ def inject_css() -> None:
             border-bottom: 2px solid {ACCENT_GOLD};
             font-weight: 600;
         }}
-        
+
         /* === Sidebar === */
         [data-testid="stSidebar"] {{
             border-right: 1px solid {BORDER};
@@ -198,19 +197,19 @@ def inject_css() -> None:
             font-size: 0.85rem;
             font-weight: 500;
         }}
-        
+
         /* === Dividers === */
         hr {{
             border: none;
             border-top: 1px solid {BORDER};
             margin: 1.5rem 0;
         }}
-        
+
         /* === Info/Warning boxes === */
         .stAlert {{
             border-radius: 8px;
         }}
-        
+
         /* === Selectbox / Dropdowns === */
         .stSelectbox > div {{
             border-color: {BORDER} !important;
@@ -219,7 +218,7 @@ def inject_css() -> None:
         .stSelectbox > div:hover {{
             border-color: {ACCENT_BLUE} !important;
         }}
-        
+
         /* === Buttons === */
         .stButton > button {{
             border-radius: 6px;
@@ -235,16 +234,16 @@ def inject_css() -> None:
             background: {BG_SECONDARY};
             color: {ACCENT_BLUE};
         }}
-        
+
         /* === Links === */
         a {{ color: {ACCENT_BLUE}; }}
-        
+
         /* === Scrollbar === */
         ::-webkit-scrollbar {{ width: 6px; }}
         ::-webkit-scrollbar-track {{ background: {BG_PRIMARY}; }}
         ::-webkit-scrollbar-thumb {{ background: {BORDER}; border-radius: 3px; }}
         ::-webkit-scrollbar-thumb:hover {{ background: {TEXT_SECONDARY}; }}
-        
+
         /* === Remove top margin on first element in tab === */
         section[data-testid="stTab"] > div:first-child {{
             margin-top: 0.5rem !important;

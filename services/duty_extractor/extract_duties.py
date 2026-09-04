@@ -1,9 +1,9 @@
-import os
 import logging
-from datetime import datetime, timezone
+import os
+from datetime import UTC, datetime
 
-from google.cloud import bigquery
 from google.api_core.exceptions import NotFound
+from google.cloud import bigquery
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 log = logging.getLogger(__name__)
@@ -69,7 +69,7 @@ def run():
         return {"duties_total": 0, "duties_new": 0}
 
     # accumulate-only: keep every duty ever seen, stamp new/legacy-null ones with today
-    today = datetime.now(timezone.utc).date().isoformat()
+    today = datetime.now(UTC).date().isoformat()
     merged = {d: (existing.get(d) or today) for d in (existing.keys() | bronze)}
 
     write_duties_to_bq(bq_client, merged)

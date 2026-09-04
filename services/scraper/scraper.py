@@ -1,9 +1,10 @@
-import os
+import contextlib
+import hashlib
 import json
 import logging
+import os
 import re
-import hashlib
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import requests
 from bs4 import BeautifulSoup
@@ -20,11 +21,11 @@ USER_AGENT = "xivpf-scraper/2.0 (personal archiver; 15-min interval)"
 def write_to_gcs(listings):
     client = gcs.Client()
     bucket = client.bucket(GCS_BUCKET)
-    ts = datetime.now(timezone.utc).strftime("%Y/%m/%d/%H%M%S")
+    ts = datetime.now(UTC).strftime("%Y/%m/%d/%H%M%S")
     gcs_path = f"raw/{ts}.json"
 
     payload = {
-        "scraped_at": datetime.now(timezone.utc).isoformat(),
+        "scraped_at": datetime.now(UTC).isoformat(),
         "listing_count": len(listings),
         "listings": listings,
     }
@@ -43,9 +44,9 @@ def write_dead_letter(error, context=""):
     try:
         client = gcs.Client()
         bucket = client.bucket(GCS_BUCKET)
-        ts = datetime.now(timezone.utc).strftime("%Y/%m/%d/%H%M%S")
+        ts = datetime.now(UTC).strftime("%Y/%m/%d/%H%M%S")
         payload = {
-            "failed_at": datetime.now(timezone.utc).isoformat(),
+            "failed_at": datetime.now(UTC).isoformat(),
             "error": str(error),
             "context": context,
         }
@@ -70,7 +71,7 @@ def make_id(*parts):
 
 def parse_listings(html):
     soup = BeautifulSoup(html, "html.parser")
-    now = datetime.now(timezone.utc).isoformat()
+    now = datetime.now(UTC).isoformat()
 
     cards = soup.select("div.listing") or soup.select("li.listing")
     if not cards:
@@ -102,11 +103,13 @@ def parse_listings(html):
         slot_list = []
         for slot in card.select("div.party div.slot"):
             classes = slot.get("class", [])
-            slot_list.append({
-                "roles": [c for c in classes if c not in ("slot", "filled", "empty")],
-                "jobs": slot.get("title", "").strip(),
-                "filled": "filled" in classes,
-            })
+            slot_list.append(
+                {
+                    "roles": [c for c in classes if c not in ("slot", "filled", "empty")],
+                    "jobs": slot.get("title", "").strip(),
+                    "filled": "filled" in classes,
+                }
+            )
         slot_details = slot_list or None
 
         min_ilvl = None
@@ -114,10 +117,8 @@ def parse_listings(html):
             name_el = stat.select_one("div.name")
             value_el = stat.select_one("div.value")
             if name_el and value_el and "il" in name_el.get_text(strip=True).lower():
-                try:
+                with contextlib.suppress(ValueError):
                     min_ilvl = int(value_el.get_text(strip=True))
-                except ValueError:
-                    pass
 
         creator = None
         creator_server = None
@@ -143,22 +144,24 @@ def parse_listings(html):
         if not duty and not description and not creator:
             continue
 
-        results.append({
-            "listing_id": listing_id,
-            "duty": duty,
-            "category": category,
-            "description": description,
-            "creator": creator,
-            "creator_server": creator_server,
-            "world": world,
-            "min_ilvl": min_ilvl,
-            "slots_filled": slots_filled,
-            "slots_total": slots_total,
-            "slot_details": slot_details,
-            "expires_in": expires,
-            "updated_at": updated,
-            "scraped_at": now,
-        })
+        results.append(
+            {
+                "listing_id": listing_id,
+                "duty": duty,
+                "category": category,
+                "description": description,
+                "creator": creator,
+                "creator_server": creator_server,
+                "world": world,
+                "min_ilvl": min_ilvl,
+                "slots_filled": slots_filled,
+                "slots_total": slots_total,
+                "slot_details": slot_details,
+                "expires_in": expires,
+                "updated_at": updated,
+                "scraped_at": now,
+            }
+        )
 
     return results
 

@@ -2,7 +2,6 @@
 explains how the data is produced."""
 
 import streamlit as st
-
 from theme import CURRENT_SAVAGE_TIER, inject_css
 
 st.set_page_config(page_title="FAQ - FFXIV Party Finder Analytics", page_icon="❓", layout="wide")
@@ -12,12 +11,13 @@ st.title("❓ FAQ & About")
 
 # --- Intro card ---
 st.markdown(
-    f"""
-<div style="background: #1B2430; border: 1px solid #2A3644; border-radius: 12px; padding: 20px; margin-bottom: 24px;">
+    """
+<div style="background: #1B2430; border: 1px solid #2A3644;
+     border-radius: 12px; padding: 20px; margin-bottom: 24px;">
 This dashboard is a <strong>portfolio showcase</strong> built on a real data pipeline that
-scrapes public <a href="https://www.finalfantasyxiv.com" target="_blank">Final Fantasy XIV</a> Party Finder
-listings from <a href="https://xivpf.com" target="_blank">xivpf.com</a>. It is meant to demonstrate a
-data-engineering project end to end, not to be a live tool.
+scrapes public <a href="https://www.finalfantasyxiv.com" target="_blank">Final Fantasy XIV</a>
+Party Finder listings from <a href="https://xivpf.com" target="_blank">xivpf.com</a>. It is
+meant to demonstrate a data-engineering project end to end, not to be a live tool.
 </div>
 """,
     unsafe_allow_html=True,
@@ -79,7 +79,7 @@ st.markdown(
 - **Roles, not jobs** — the source only exposes role buckets (tank / healer /
   DPS), not individual jobs (WAR, WHM, etc.), so per-job stats aren't available.
 - **Reset week** — weeks are anchored to the FFXIV weekly reset, Tuesday 08:00 UTC.
-- **Current savage tier** — {CURRENT_SAVAGE_TIER['label']}, used for context and
+- **Current savage tier** — {CURRENT_SAVAGE_TIER["label"]}, used for context and
   to highlight current-tier duties on the main page.
 """
 )
