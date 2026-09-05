@@ -1,9 +1,9 @@
 # Eorzean Night theme. See STYLING.md for the full palette and usage rules.
 [theme]
 base = "dark"
-primaryColor = "#E5A73C"             # Eorzean gold - accents, active widgets, links
-backgroundColor = "#0E1117"          # near-black slate - page background
-secondaryBackgroundColor = "#1B2430" # panels, sidebar, metric cards
-textColor = "#E6E6E6"
+primaryColor = "#D4A843"             # Eorzean gold - accents, active widgets, links
+backgroundColor = "#0B0F14"          # near-black slate - page background
+secondaryBackgroundColor = "#151B24" # panels, sidebar, metric cards
+textColor = "#E8EDF4"
 font = "Inter, sans serif"
-borderRadius = "12"
+baseRadius = "12"
